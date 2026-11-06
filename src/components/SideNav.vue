@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useBridgeStore } from "../stores/bridge";
 import { useThemeStore } from "../stores/theme";
 import { useUpdateStore } from "../stores/update";
+import { useHisenseStore } from "../stores/hisense";
 import { useI18n } from "vue-i18n";
 import type { BridgeStatus } from "../types";
 import { connectedDeviceName, connectionStatusPresentation } from "../utils/connectionStatus";
@@ -13,13 +14,14 @@ const router = useRouter();
 const bridge = useBridgeStore();
 const theme = useThemeStore();
 const update = useUpdateStore();
+const hisense = useHisenseStore();
+const isHisensePage = computed(() => route.path === "/hisense");
 const { t } = useI18n();
 
 const appVersion = computed(() => update.currentVersion);
 
 const device = computed(() => bridge.devices.xiaomi);
-const isDevicePage = computed(() => route.path === "/xiaomi" || route.path === "/xiaomi/");
-const isMappingPage = computed(() => route.path === "/xiaomi/mapping");
+const isDevicePage = computed(() => route.path === "/xiaomi" || route.path === "/xiaomi/" || route.path === "/xiaomi/mapping");
 const themeToggleLabel = computed(() =>
   theme.effectiveTheme === "dark" ? t("nav.light") : t("nav.dark")
 );
@@ -33,7 +35,7 @@ function statusClass(status: BridgeStatus): string {
   return connectionStatusPresentation(status, device.value).tone;
 }
 
-function navigate(path: "/xiaomi" | "/xiaomi/mapping" | "/settings") {
+function navigate(path: "/xiaomi" | "/xiaomi/mapping" | "/settings" | "/hisense") {
   if (route.path !== path) void router.push(path);
 }
 
@@ -57,15 +59,16 @@ function toggleTheme() {
         <span v-else class="brand-version">{{ appVersion }}</span>
       </div>
       <div
-        :class="['device-chip', statusClass(device.status)]"
-        :title="devicePresentation.detail || bridge.statusLabel(device.status)"
+        :class="['device-chip', isHisensePage ? (hisense.status.connected ? 'connected' : hisense.status.running ? 'connecting' : 'disconnected') : statusClass(device.status)]"
+        :title="isHisensePage ? (hisense.status.error || 'Hisense CRF3C65 / DRF3U65') : devicePresentation.detail || bridge.statusLabel(device.status)"
       >
-        <span class="status-dot status-light" :class="statusClass(device.status)" aria-hidden="true" />
-        <span>{{ deviceLabel }}</span>
+        <span class="status-dot status-light" :class="isHisensePage ? (hisense.status.connected ? 'connected' : 'disconnected') : statusClass(device.status)" aria-hidden="true" />
+        <span>{{ isHisensePage ? (hisense.status.connected ? '海信灵指已连接' : '等待海信接收器') : deviceLabel }}</span>
       </div>
     </div>
 
     <nav class="main-nav" :aria-label="t('nav.main')">
+      <button type="button" :class="{ active: isHisensePage }" :aria-current="isHisensePage ? 'page' : undefined" @click="navigate('/hisense')">海信灵指</button>
       <button
         type="button"
         :class="{ active: isDevicePage }"
@@ -73,14 +76,6 @@ function toggleTheme() {
         @click="navigate('/xiaomi')"
       >
         {{ t("nav.home") }}
-      </button>
-      <button
-        type="button"
-        :class="{ active: isMappingPage }"
-        :aria-current="isMappingPage ? 'page' : undefined"
-        @click="navigate('/xiaomi/mapping')"
-      >
-        {{ t("nav.mapping") }}
       </button>
     </nav>
 

@@ -1,4 +1,5 @@
 pub mod shared;
+pub mod hisense;
 pub mod xiaomi;
 
 use parking_lot::RwLock;

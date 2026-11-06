@@ -349,6 +349,10 @@ pub async fn check_for_update(
     let current_version = app.package_info().version.to_string();
     let current = normalize_version(&current_version)
         .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Validation, error))?;
+    if current.pre.as_str().starts_with("hisense.") {
+        return Err(UpdateCheckError::new(UpdateCheckStage::Validation,
+            "当前为海信适配测试版，请使用海信测试版安装包更新；上游正式版可能尚未包含海信功能。"));
+    }
     let fetched = tokio::task::spawn_blocking(fetch_latest_release)
         .await
         .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Task, format!("更新检查任务失败：{error}")))??;

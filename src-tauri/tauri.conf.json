@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/heads/v2/crates/tauri-utils/schema.json",
   "productName": "Nexus Prime",
-  "version": "0.5.5",
+  "version": "0.5.6-hisense.3",
   "identifier": "com.lightyear.nexusprime",
   "build": {
     "frontendDist": "../dist",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Nexus Prime",
+        "title": "Nexus Prime · 海信适配测试版",
         "width": 1080,
         "height": 814,
         "minWidth": 880,

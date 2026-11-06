@@ -1,11 +1,14 @@
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createMemoryHistory, createRouter } from "vue-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n";
 import XiaomiSettingsView from "./XiaomiSettings.vue";
 import InputMethodSettingsDialog from "../components/InputMethodSettingsDialog.vue";
 import type { ImePreset } from "../utils/imePreset";
+
+// Dispose polling views before another test replaces their IPC responses.
+enableAutoUnmount(afterEach);
 
 const { invoke, listen, save } = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -428,5 +431,17 @@ describe("XiaomiSettings unified logs", () => {
     expect(invoke.mock.calls.some(([command]) => command === "export_app_log")).toBe(false);
     expect((buttonByText(wrapper, "复制日志").element as HTMLButtonElement).disabled).toBe(false);
     wrapper.unmount();
+  });
+});
+
+ describe("Xiaomi integrated mappings", () => {
+  it("shows one mapping stage between service status and quick actions", async () => {
+    const view = await mountView();
+    const hostCard = view.get(".host-card").element;
+    const mapping = view.get("#xiaomi-mapping").element;
+    const quick = view.get(".quick-section").element;
+    expect(hostCard.compareDocumentPosition(mapping) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(mapping.compareDocumentPosition(quick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(view.findAll("key-mapping-stage-stub")).toHaveLength(1);
   });
 });

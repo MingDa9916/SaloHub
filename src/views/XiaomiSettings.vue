@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref, nextTick, watch } from "vue";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { save } from "@tauri-apps/plugin-dialog";
 import { loggedInvoke as invoke } from "../utils/appLogger";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { useBridgeStore } from "../stores/bridge";
 import { useConfigStore } from "../stores/config";
 import DeviceStatus from "../components/DeviceStatus.vue";
@@ -25,13 +25,11 @@ import { useI18n } from "vue-i18n";
 const bridge = useBridgeStore();
 const configStore = useConfigStore();
 const route = useRoute();
-const router = useRouter();
 const { t } = useI18n();
 const type = "xiaomi" as const;
 
 const device = computed(() => bridge.devices[type]);
 const config = computed(() => configStore.configs[type]);
-const isMappingPage = computed(() => route.name === "xiaomi-mapping");
 
 interface HostStatusItem {
   id: string;
@@ -1259,12 +1257,6 @@ function closeTransientUi() {
   showRestartTip.value = false;
 }
 
-function navigateSection(target: "home" | "mapping") {
-  const name = target === "mapping" ? "xiaomi-mapping" : "xiaomi";
-  if (route.name === name) return;
-  closeTransientUi();
-  void router.push({ name });
-}
 
 watch(
   () => route.name,
@@ -1274,8 +1266,8 @@ watch(
 </script>
 
 <template>
-  <div :class="['page', { 'dashboard-page': !isMappingPage }]">
-    <header v-if="!isMappingPage" class="dashboard-head">
+  <div class="page dashboard-page">
+    <header class="dashboard-head">
       <div>
         <h1>{{ t("dashboard.title") }}</h1>
       </div>
@@ -1288,7 +1280,7 @@ watch(
       />
     </header>
 
-    <div v-if="!isMappingPage" class="overview-row">
+    <div class="overview-row">
       <div class="overview-left">
         <section :class="['card', 'device-overview', `connection-${connectionPresentation.tone}`]">
           <div class="device-primary">
@@ -1397,6 +1389,259 @@ watch(
           </div>
           <p v-if="host.detail" class="host-detail">{{ host.detail }}</p>
         </section>
+
+      <section v-if="config" id="xiaomi-mapping" class="mapping-page embedded-mapping">
+        <header class="mapping-page-head">
+          <div>
+            <h2>{{ t("mapping.title") }}</h2>
+            <p class="mapping-subtitle">{{ t("mapping.subtitle") }}</p>
+          </div>
+          <div class="status-capsule mapping-head-actions" :aria-label="t('mapping.title')">
+            <span
+              :class="['mapping-status-pill', connectionPresentation.tone]"
+              :title="connectionPresentation.detail || undefined"
+              :aria-label="connectionPresentation.detail ? `${bridgeStatusLabel()}：${connectionPresentation.detail}` : bridgeStatusLabel()"
+            >
+              <span class="status-light" :class="statusLightClass(connectionPresentation.tone)" aria-hidden="true"></span>{{ bridgeStatusLabel() }}
+            </span>
+            <span class="mapping-save-state" :class="{ saving: configStore.saving }">
+              <span aria-hidden="true">{{ configStore.saving ? '↻' : '✓' }}</span>
+              {{ configStore.saving ? t('status.savingMapping') : t('status.autosave') }}
+            </span>
+          </div>
+        </header>
+
+        <section class="card mapping-layout">
+        <div class="mapping-heading">
+          <p
+            v-if="lastMappingFlash"
+            :key="lastMappingFlash.seq"
+            class="mapping-flash"
+            role="status"
+            aria-live="polite"
+          >
+            <span class="mapping-flash-phase">{{
+              lastMappingFlash.phase === "up" ? "抬起" : "按下"
+            }}</span>
+            <span class="mapping-flash-remote">{{ lastMappingFlash.remote }}</span>
+            <template v-if="lastMappingFlash.mapped">
+              <span class="mapping-flash-sep" aria-hidden="true">：</span>
+              <span class="mapping-flash-mapped">{{ lastMappingFlash.mapped }}</span>
+            </template>
+          </p>
+        </div>
+        <div class="voice-toolbar" role="group" aria-label="语音听写设置">
+          <div class="voice-toolbar-item">
+            <span class="voice-toolbar-label">
+              <strong>语音键发送映射按键</strong>
+              <small>点击语音键时同步发送快捷键</small>
+            </span>
+            <label class="switch" title="点击语音键是否发送映射按键">
+              <input
+                type="checkbox"
+                v-model="voiceShortcutEnabled"
+                aria-label="点击语音键是否发送映射按键"
+              />
+              <span class="switch-slider" aria-hidden="true"></span>
+            </label>
+            <button
+              ref="voiceInfoBtn"
+              type="button"
+              class="title-info voice-info"
+              :aria-expanded="showVoiceShortcutTip"
+              aria-label="语音映射按键说明"
+              @mouseenter="openVoiceTip"
+              @mouseleave="scheduleCloseVoiceTip"
+              @focus="openVoiceTip"
+              @blur="scheduleCloseVoiceTip"
+              @click.stop="toggleVoiceTip"
+            >
+              <span class="title-info-icon" aria-hidden="true">i</span>
+            </button>
+            <Teleport to="body">
+              <div
+                v-if="showVoiceShortcutTip"
+                ref="voiceTipEl"
+                class="floating-info-tip voice-info-tip"
+                role="tooltip"
+                :style="voiceTipStyle"
+                @mouseenter="openVoiceTip"
+                @mouseleave="scheduleCloseVoiceTip"
+              >
+                <p class="tip-lead">
+                  只管「按语音键时要不要发映射快捷键」。传声（VB-CABLE）不受此开关影响。
+                </p>
+                <div class="tip-block tip-on">
+                  <div class="tip-badge">开</div>
+                  <ul>
+                    <li>声音送到电脑</li>
+                    <li>按触发模式发送你设好的映射键</li>
+                  </ul>
+                  <p class="tip-aside">适合靠快捷键开/关的语音输入法。</p>
+                </div>
+                <div class="tip-block tip-off">
+                  <div class="tip-badge">关</div>
+                  <ul>
+                    <li>声音照样送到电脑</li>
+                    <li>不发送映射键（日志只记按下/抬起语音键）</li>
+                  </ul>
+                  <p class="tip-aside">听写需自行打开输入法语音。</p>
+                </div>
+              </div>
+            </Teleport>
+          </div>
+
+          <div class="voice-toolbar-item">
+            <span class="voice-toolbar-label">
+              <strong>默认触发模式</strong>
+              <small>语音快捷键的发送方式</small>
+            </span>
+            <select
+              v-model="config.trigger_mode"
+              class="form-select voice-toolbar-select"
+              @change="onTriggerModeChanged"
+            >
+              <option value="Toggle">点击</option>
+              <option value="Hold">按住</option>
+            </select>
+            <button
+              ref="triggerInfoBtn"
+              type="button"
+              class="title-info voice-info"
+              :aria-expanded="showTriggerTip"
+              aria-label="触发模式说明"
+              @mouseenter="openTriggerTip"
+              @mouseleave="scheduleCloseTriggerTip"
+              @focus="openTriggerTip"
+              @blur="scheduleCloseTriggerTip"
+              @click.stop="toggleTriggerTip"
+            >
+              <span class="title-info-icon" aria-hidden="true">i</span>
+            </button>
+            <Teleport to="body">
+              <div
+                v-if="showTriggerTip"
+                ref="triggerTipEl"
+                class="floating-info-tip voice-info-tip"
+                role="tooltip"
+                :style="triggerTipStyle"
+                @mouseenter="openTriggerTip"
+                @mouseleave="scheduleCloseTriggerTip"
+              >
+                <p class="tip-lead">
+                  快捷键跟随遥控器实际操作：点一下就点按，按住就按住。
+                </p>
+                <div class="tip-block tip-on">
+                  <div class="tip-badge">点击</div>
+                  <ul>
+                    <li>短按语音键：点按一次映射快捷键</li>
+                    <li>长按语音键：按住映射快捷键，松手释放</li>
+                  </ul>
+                  <p class="tip-aside">适合「点一下开/关」类输入法，也会正确处理长按。</p>
+                </div>
+                <div class="tip-block tip-off">
+                  <div class="tip-badge">按住</div>
+                  <ul>
+                    <li>按下语音键：立刻按住映射快捷键并传声</li>
+                    <li>松开语音键：释放快捷键并结束</li>
+                  </ul>
+                  <p class="tip-aside">适合「按住说话」类输入法。</p>
+                </div>
+              </div>
+            </Teleport>
+          </div>
+
+          <div class="voice-toolbar-item">
+            <span class="voice-toolbar-label">
+              <strong>音量增益</strong>
+              <small>语音输入的增益 dB</small>
+            </span>
+            <div class="number-stepper" role="group" aria-label="增益分贝">
+              <button
+                type="button"
+                class="stepper-btn"
+                aria-label="减小增益"
+                :disabled="gainDb <= GAIN_MIN"
+                @click="stepGain(-GAIN_STEP)"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                class="gain-input"
+                v-model.number="gainDb"
+                :min="GAIN_MIN"
+                :max="GAIN_MAX"
+                :step="GAIN_STEP"
+                @blur="clampGainOnBlur"
+              />
+              <button
+                type="button"
+                class="stepper-btn"
+                aria-label="增大增益"
+                :disabled="gainDb >= GAIN_MAX"
+                @click="stepGain(GAIN_STEP)"
+              >
+                +
+              </button>
+            </div>
+            <button
+              ref="gainInfoBtn"
+              type="button"
+              class="title-info voice-info"
+              :aria-expanded="showGainTip"
+              aria-label="增益说明"
+              @mouseenter="openGainTip"
+              @mouseleave="scheduleCloseGainTip"
+              @focus="openGainTip"
+              @blur="scheduleCloseGainTip"
+              @click.stop="toggleGainTip"
+            >
+              <span class="title-info-icon" aria-hidden="true">i</span>
+            </button>
+            <Teleport to="body">
+              <div
+                v-if="showGainTip"
+                ref="gainTipEl"
+                class="floating-info-tip voice-info-tip"
+                role="tooltip"
+                :style="gainTipStyle"
+                @mouseenter="openGainTip"
+                @mouseleave="scheduleCloseGainTip"
+              >
+                <p class="tip-lead">
+                  增益 = 把遥控器麦克风声音「放大或缩小」再送进电脑（VB-CABLE）。
+                  只影响音量大小，不改变能不能说话。
+                </p>
+                <div class="tip-block tip-on">
+                  <div class="tip-badge">怎么调</div>
+                  <ul>
+                    <li>听不清、识别漏字 → 调高（如 10 → 14）</li>
+                    <li>破音、刺耳、识别乱 → 调低（如 10 → 6）</li>
+                    <li>常用默认 <strong>10 dB</strong>；范围 -12 ～ 30</li>
+                  </ul>
+                </div>
+                <div class="tip-block tip-off">
+                  <div class="tip-badge">注意</div>
+                  <ul>
+                    <li>改完后请重新连接遥控器，或点「重启桥接」后生效</li>
+                    <li>一次加减 2～4 dB 即可，别一次拉满</li>
+                  </ul>
+                </div>
+                <p class="tip-foot">
+                  简单记：声音太小就加，太吵就减。
+                </p>
+              </div>
+            </Teleport>
+          </div>
+        </div>
+        <KeyMappingStage
+          :config="config"
+          :saving="configStore.saving"
+          @save="(cfg) => configStore.saveConfig(type, cfg)"
+        />
+      </section>
+      </section>
 
         <section class="card quick-section">
           <div class="section-title">
@@ -1797,258 +2042,7 @@ watch(
         </section>
       </div>
 
-      <section v-if="isMappingPage && config" class="mapping-page">
-        <header class="mapping-page-head">
-          <div>
-            <h1>{{ t("mapping.title") }}</h1>
-            <p class="mapping-subtitle">{{ t("mapping.subtitle") }}</p>
-          </div>
-          <div class="status-capsule mapping-head-actions" :aria-label="t('mapping.title')">
-            <span
-              :class="['mapping-status-pill', connectionPresentation.tone]"
-              :title="connectionPresentation.detail || undefined"
-              :aria-label="connectionPresentation.detail ? `${bridgeStatusLabel()}：${connectionPresentation.detail}` : bridgeStatusLabel()"
-            >
-              <span class="status-light" :class="statusLightClass(connectionPresentation.tone)" aria-hidden="true"></span>{{ bridgeStatusLabel() }}
-            </span>
-            <span class="mapping-save-state" :class="{ saving: configStore.saving }">
-              <span aria-hidden="true">{{ configStore.saving ? '↻' : '✓' }}</span>
-              {{ configStore.saving ? t('status.savingMapping') : t('status.autosave') }}
-            </span>
-          </div>
-        </header>
 
-        <section class="card mapping-layout">
-        <div class="mapping-heading">
-          <p
-            v-if="lastMappingFlash"
-            :key="lastMappingFlash.seq"
-            class="mapping-flash"
-            role="status"
-            aria-live="polite"
-          >
-            <span class="mapping-flash-phase">{{
-              lastMappingFlash.phase === "up" ? "抬起" : "按下"
-            }}</span>
-            <span class="mapping-flash-remote">{{ lastMappingFlash.remote }}</span>
-            <template v-if="lastMappingFlash.mapped">
-              <span class="mapping-flash-sep" aria-hidden="true">：</span>
-              <span class="mapping-flash-mapped">{{ lastMappingFlash.mapped }}</span>
-            </template>
-          </p>
-        </div>
-        <div class="voice-toolbar" role="group" aria-label="语音听写设置">
-          <div class="voice-toolbar-item">
-            <span class="voice-toolbar-label">
-              <strong>语音键发送映射按键</strong>
-              <small>点击语音键时同步发送快捷键</small>
-            </span>
-            <label class="switch" title="点击语音键是否发送映射按键">
-              <input
-                type="checkbox"
-                v-model="voiceShortcutEnabled"
-                aria-label="点击语音键是否发送映射按键"
-              />
-              <span class="switch-slider" aria-hidden="true"></span>
-            </label>
-            <button
-              ref="voiceInfoBtn"
-              type="button"
-              class="title-info voice-info"
-              :aria-expanded="showVoiceShortcutTip"
-              aria-label="语音映射按键说明"
-              @mouseenter="openVoiceTip"
-              @mouseleave="scheduleCloseVoiceTip"
-              @focus="openVoiceTip"
-              @blur="scheduleCloseVoiceTip"
-              @click.stop="toggleVoiceTip"
-            >
-              <span class="title-info-icon" aria-hidden="true">i</span>
-            </button>
-            <Teleport to="body">
-              <div
-                v-if="showVoiceShortcutTip"
-                ref="voiceTipEl"
-                class="floating-info-tip voice-info-tip"
-                role="tooltip"
-                :style="voiceTipStyle"
-                @mouseenter="openVoiceTip"
-                @mouseleave="scheduleCloseVoiceTip"
-              >
-                <p class="tip-lead">
-                  只管「按语音键时要不要发映射快捷键」。传声（VB-CABLE）不受此开关影响。
-                </p>
-                <div class="tip-block tip-on">
-                  <div class="tip-badge">开</div>
-                  <ul>
-                    <li>声音送到电脑</li>
-                    <li>按触发模式发送你设好的映射键</li>
-                  </ul>
-                  <p class="tip-aside">适合靠快捷键开/关的语音输入法。</p>
-                </div>
-                <div class="tip-block tip-off">
-                  <div class="tip-badge">关</div>
-                  <ul>
-                    <li>声音照样送到电脑</li>
-                    <li>不发送映射键（日志只记按下/抬起语音键）</li>
-                  </ul>
-                  <p class="tip-aside">听写需自行打开输入法语音。</p>
-                </div>
-              </div>
-            </Teleport>
-          </div>
-
-          <div class="voice-toolbar-item">
-            <span class="voice-toolbar-label">
-              <strong>默认触发模式</strong>
-              <small>语音快捷键的发送方式</small>
-            </span>
-            <select
-              v-model="config.trigger_mode"
-              class="form-select voice-toolbar-select"
-              @change="onTriggerModeChanged"
-            >
-              <option value="Toggle">点击</option>
-              <option value="Hold">按住</option>
-            </select>
-            <button
-              ref="triggerInfoBtn"
-              type="button"
-              class="title-info voice-info"
-              :aria-expanded="showTriggerTip"
-              aria-label="触发模式说明"
-              @mouseenter="openTriggerTip"
-              @mouseleave="scheduleCloseTriggerTip"
-              @focus="openTriggerTip"
-              @blur="scheduleCloseTriggerTip"
-              @click.stop="toggleTriggerTip"
-            >
-              <span class="title-info-icon" aria-hidden="true">i</span>
-            </button>
-            <Teleport to="body">
-              <div
-                v-if="showTriggerTip"
-                ref="triggerTipEl"
-                class="floating-info-tip voice-info-tip"
-                role="tooltip"
-                :style="triggerTipStyle"
-                @mouseenter="openTriggerTip"
-                @mouseleave="scheduleCloseTriggerTip"
-              >
-                <p class="tip-lead">
-                  快捷键跟随遥控器实际操作：点一下就点按，按住就按住。
-                </p>
-                <div class="tip-block tip-on">
-                  <div class="tip-badge">点击</div>
-                  <ul>
-                    <li>短按语音键：点按一次映射快捷键</li>
-                    <li>长按语音键：按住映射快捷键，松手释放</li>
-                  </ul>
-                  <p class="tip-aside">适合「点一下开/关」类输入法，也会正确处理长按。</p>
-                </div>
-                <div class="tip-block tip-off">
-                  <div class="tip-badge">按住</div>
-                  <ul>
-                    <li>按下语音键：立刻按住映射快捷键并传声</li>
-                    <li>松开语音键：释放快捷键并结束</li>
-                  </ul>
-                  <p class="tip-aside">适合「按住说话」类输入法。</p>
-                </div>
-              </div>
-            </Teleport>
-          </div>
-
-          <div class="voice-toolbar-item">
-            <span class="voice-toolbar-label">
-              <strong>音量增益</strong>
-              <small>语音输入的增益 dB</small>
-            </span>
-            <div class="number-stepper" role="group" aria-label="增益分贝">
-              <button
-                type="button"
-                class="stepper-btn"
-                aria-label="减小增益"
-                :disabled="gainDb <= GAIN_MIN"
-                @click="stepGain(-GAIN_STEP)"
-              >
-                −
-              </button>
-              <input
-                type="number"
-                class="gain-input"
-                v-model.number="gainDb"
-                :min="GAIN_MIN"
-                :max="GAIN_MAX"
-                :step="GAIN_STEP"
-                @blur="clampGainOnBlur"
-              />
-              <button
-                type="button"
-                class="stepper-btn"
-                aria-label="增大增益"
-                :disabled="gainDb >= GAIN_MAX"
-                @click="stepGain(GAIN_STEP)"
-              >
-                +
-              </button>
-            </div>
-            <button
-              ref="gainInfoBtn"
-              type="button"
-              class="title-info voice-info"
-              :aria-expanded="showGainTip"
-              aria-label="增益说明"
-              @mouseenter="openGainTip"
-              @mouseleave="scheduleCloseGainTip"
-              @focus="openGainTip"
-              @blur="scheduleCloseGainTip"
-              @click.stop="toggleGainTip"
-            >
-              <span class="title-info-icon" aria-hidden="true">i</span>
-            </button>
-            <Teleport to="body">
-              <div
-                v-if="showGainTip"
-                ref="gainTipEl"
-                class="floating-info-tip voice-info-tip"
-                role="tooltip"
-                :style="gainTipStyle"
-                @mouseenter="openGainTip"
-                @mouseleave="scheduleCloseGainTip"
-              >
-                <p class="tip-lead">
-                  增益 = 把遥控器麦克风声音「放大或缩小」再送进电脑（VB-CABLE）。
-                  只影响音量大小，不改变能不能说话。
-                </p>
-                <div class="tip-block tip-on">
-                  <div class="tip-badge">怎么调</div>
-                  <ul>
-                    <li>听不清、识别漏字 → 调高（如 10 → 14）</li>
-                    <li>破音、刺耳、识别乱 → 调低（如 10 → 6）</li>
-                    <li>常用默认 <strong>10 dB</strong>；范围 -12 ～ 30</li>
-                  </ul>
-                </div>
-                <div class="tip-block tip-off">
-                  <div class="tip-badge">注意</div>
-                  <ul>
-                    <li>改完后请重新连接遥控器，或点「重启桥接」后生效</li>
-                    <li>一次加减 2～4 dB 即可，别一次拉满</li>
-                  </ul>
-                </div>
-                <p class="tip-foot">
-                  简单记：声音太小就加，太吵就减。
-                </p>
-              </div>
-            </Teleport>
-          </div>
-        </div>
-        <KeyMappingStage
-          :config="config"
-          :saving="configStore.saving"
-          @save="(cfg) => configStore.saveConfig(type, cfg)"
-        />
-      </section>
-      </section>
     </div>
   </div>
 </template>
@@ -3092,7 +3086,8 @@ watch(
 @media (min-width: 1020px) {
   .dashboard-page .overview-left {
     display: grid;
-    grid-template-rows: minmax(178px, 1.35fr) minmax(136px, .825fr) minmax(138px, .825fr);
+    grid-template-rows: auto;
+    align-content: start;
     flex: 1;
     min-height: 0;
   }
@@ -3129,7 +3124,7 @@ watch(
 .mapping-page { width: 100%; max-width: 1260px; margin: 0 auto; }
 .mapping-page-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 18px; margin: 0 0 18px; }
 .mapping-page-head > div:first-child { min-width: 0; }
-.mapping-page-head h1 { margin: 0; color: var(--text); font-size: 27px; font-weight: 800; letter-spacing: -0.65px; }
+.mapping-page-head h1, .mapping-page-head h2 { margin: 0; color: var(--text); font-size: 27px; font-weight: 800; letter-spacing: -0.65px; }
 .mapping-subtitle { max-width: 54ch; margin: 7px 0 0; color: var(--text-secondary); font-size: 13px; line-height: 1.5; }
 .mapping-head-actions { justify-self: end; justify-content: flex-end; flex-wrap: wrap; min-width: 0; }
 .mapping-status-pill,
@@ -3161,10 +3156,35 @@ watch(
 @media (max-width: 760px) {
   .mapping-page-head { grid-template-columns: minmax(0, 1fr); align-items: start; margin-bottom: 14px; }
   .mapping-head-actions { justify-self: start; justify-content: flex-start; }
-  .mapping-page-head h1 { font-size: 24px; }
+  .mapping-page-head h1, .mapping-page-head h2 { font-size: 24px; }
   .mapping-layout { padding: 11px; }
   .mapping-layout .voice-toolbar { grid-template-columns: 1fr; }
   .mapping-layout .voice-toolbar-item:last-child { grid-column: auto; }
+}
+/* 页面内嵌映射使用自然高度，避免控制台卡片被窗口撑出大块留白。 */
+.dashboard-page { min-height: 0; }
+.dashboard-page .overview-row { align-items: start; flex: none; }
+.overview-left { min-width: 0; }
+.embedded-mapping { min-width: 0; scroll-margin-top: 20px; }
+.embedded-mapping .mapping-page-head { margin: 4px 0 12px; align-items: center; }
+.embedded-mapping .mapping-page-head h2 { font-size: 20px; letter-spacing: -.3px; }
+.embedded-mapping .mapping-subtitle { font-size: 12px; }
+.embedded-mapping .mapping-layout { box-shadow: var(--shadow-sm); }
+.embedded-mapping .voice-toolbar { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); }
+.embedded-mapping .voice-toolbar-item { gap: 8px; }
+.embedded-mapping .voice-toolbar-item:last-child { grid-column: auto; }
+.embedded-mapping .voice-toolbar-item { min-height: 54px; }
+.embedded-mapping :deep(.mapping-stage-v2) { grid-template-columns: 220px minmax(0, 1fr); gap: 14px; }
+.embedded-mapping :deep(.mapping-list-head) { flex-wrap: wrap; }
+.embedded-mapping :deep(.mapping-panel-heading) { flex-wrap: wrap; gap: 5px 10px; }
+.embedded-mapping :deep(.mapping-panel-heading h3) { white-space: nowrap; }
+@media (max-width: 1250px) {
+  .overview-row { grid-template-columns: minmax(0, 1fr); }
+  .activity-card { min-height: 260px; max-height: 400px; }
+}
+@media (max-width: 760px) {
+  .embedded-mapping :deep(.mapping-stage-v2) { grid-template-columns: minmax(0, 1fr); }
+  .embedded-mapping .voice-toolbar { grid-template-columns: minmax(0, 1fr); }
 }
 </style>
 
@@ -3265,5 +3285,30 @@ watch(
 }
 :root[data-theme="dark"] .floating-info-tip .tip-foot {
   border-top-color: var(--border-strong);
+}
+/* 页面内嵌映射使用自然高度，避免控制台卡片被窗口撑出大块留白。 */
+.dashboard-page { min-height: 0; }
+.dashboard-page .overview-row { align-items: start; flex: none; }
+.overview-left { min-width: 0; }
+.embedded-mapping { min-width: 0; scroll-margin-top: 20px; }
+.embedded-mapping .mapping-page-head { margin: 4px 0 12px; align-items: center; }
+.embedded-mapping .mapping-page-head h2 { font-size: 20px; letter-spacing: -.3px; }
+.embedded-mapping .mapping-subtitle { font-size: 12px; }
+.embedded-mapping .mapping-layout { box-shadow: var(--shadow-sm); }
+.embedded-mapping .voice-toolbar { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); }
+.embedded-mapping .voice-toolbar-item { gap: 8px; }
+.embedded-mapping .voice-toolbar-item:last-child { grid-column: auto; }
+.embedded-mapping .voice-toolbar-item { min-height: 54px; }
+.embedded-mapping :deep(.mapping-stage-v2) { grid-template-columns: 220px minmax(0, 1fr); gap: 14px; }
+.embedded-mapping :deep(.mapping-list-head) { flex-wrap: wrap; }
+.embedded-mapping :deep(.mapping-panel-heading) { flex-wrap: wrap; gap: 5px 10px; }
+.embedded-mapping :deep(.mapping-panel-heading h3) { white-space: nowrap; }
+@media (max-width: 1250px) {
+  .overview-row { grid-template-columns: minmax(0, 1fr); }
+  .activity-card { min-height: 260px; max-height: 400px; }
+}
+@media (max-width: 760px) {
+  .embedded-mapping :deep(.mapping-stage-v2) { grid-template-columns: minmax(0, 1fr); }
+  .embedded-mapping .voice-toolbar { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

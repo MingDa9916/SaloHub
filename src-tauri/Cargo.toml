@@ -1,6 +1,6 @@
 [package]
 name = "nexus-prime"
-version = "0.5.5"
+version = "0.5.6-hisense.3"
 description = "Nexus Prime - voice remote bridge (Rust)"
 authors = ["Light year"]
 edition = "2021"
@@ -44,6 +44,8 @@ windows = { version = "0.58", features = [
     "Foundation_Collections",
     "Win32_UI_Input",
     "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Input_Pointer",
+    "Win32_Graphics_Gdi",
     "Win32_UI_Accessibility",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",
@@ -60,6 +62,8 @@ windows = { version = "0.58", features = [
     "Win32_System_Console",
     "Win32_Security",
     "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Devices_Usb",
+    "Win32_Media_Multimedia",
     "Win32_System_IO",
     "Win32_Networking_WinSock",
     "Win32_System_Com",

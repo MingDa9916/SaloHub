@@ -23,6 +23,17 @@ static CLIENT: Mutex<Option<Client>> = Mutex::new(None);
 /// 热路径快速判断，避免每帧进 ensure_started / 抢锁探测
 static READY: AtomicBool = AtomicBool::new(false);
 static STARTING: AtomicBool = AtomicBool::new(false);
+static EXTERNAL_VOICE: AtomicBool = AtomicBool::new(false);
+pub(crate) static VOICE_ADMISSION: Mutex<()> = Mutex::new(());
+pub fn external_voice_active() -> bool { EXTERNAL_VOICE.load(Ordering::Acquire) }
+pub fn claim_external_voice() -> bool {
+    let _admission = VOICE_ADMISSION.lock();
+    let _send = SEND_LOCK.lock();
+    if EXTERNAL_VOICE.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire).is_err() { return false; }
+    if super::key_mapping::voice_native_suppress_active() || super::key_mapping::voice_in_progress() { EXTERNAL_VOICE.store(false, Ordering::Release); return false; }
+    true
+}
+pub fn release_external_voice() { EXTERNAL_VOICE.store(false, Ordering::Release); }
 static INPUT_GATE_CLOSED: AtomicBool = AtomicBool::new(false);
 static SEND_LOCK: Mutex<()> = Mutex::new(());
 static FIRST_SEND_AT: Mutex<Option<Instant>> = Mutex::new(None);
@@ -152,6 +163,7 @@ pub fn is_ready() -> bool {
 /// decoded immediately but held briefly until the input-method shortcut has
 /// actually been delivered.
 pub fn begin_session() {
+    if external_voice_active() { return; }
     INPUT_GATE_CLOSED.store(true, Ordering::Release);
     let mut pending = PENDING.lock();
     pending.frames.clear();
@@ -186,6 +198,8 @@ pub fn first_send_at() -> Option<Instant> {
 }
 
 pub fn clear() {
+    let _send = SEND_LOCK.lock();
+    if external_voice_active() { return; }
     if let Some(c) = CLIENT.lock().as_ref() {
         let _ = c.sock.send_to(b"CLEAR", c.peer);
     }
@@ -196,6 +210,8 @@ pub fn clear() {
 }
 
 pub fn end_session() {
+    let _send = SEND_LOCK.lock();
+    if external_voice_active() { return; }
     if let Some(c) = CLIENT.lock().as_ref() {
         let _ = c.sock.send_to(b"END", c.peer);
     }
@@ -204,6 +220,7 @@ pub fn end_session() {
 /// 将 ATVV 单声道 PCM 重采样到 router 所需的 48kHz。
 /// 目前协议支持 8kHz 和 16kHz；切换采样率时丢弃插值历史，避免跨速率产生爆音。
 pub fn push_pcm(samples: &[i16], source_rate_hz: u32) {
+    if external_voice_active() { return; }
     if samples.is_empty() {
         return;
     }
@@ -223,6 +240,7 @@ pub fn push_pcm(samples: &[i16], source_rate_hz: u32) {
         return;
     }
     let _send = SEND_LOCK.lock();
+    if external_voice_active() { return; }
     flush_pending_locked();
     send_pcm_now(samples, source_rate_hz, ratio);
 }
@@ -253,6 +271,7 @@ fn flush_pending() {
 }
 
 fn flush_pending_locked() {
+    if external_voice_active() { return; }
     if INPUT_GATE_CLOSED.load(Ordering::Acquire) || !READY.load(Ordering::Acquire) {
         return;
     }

@@ -386,6 +386,7 @@ pub fn bind_voice_hook_app(app: AppHandle) {
 
 /// ATVV 不可用时，由 special_keys 在吞掉固件 F5 后调用，补齐按键映射区的按下/抬起提示
 pub fn on_firmware_voice_key(pressed: bool) {
+    if pressed && super::voice_pcm::external_voice_active() { return; }
     if connect::atvv_subscribed() {
         return;
     }
@@ -1419,6 +1420,8 @@ fn click_count_label(count: u8) -> &'static str {
 }
 
 fn handle_voice(app: &AppHandle, pressed: bool) {
+    let _admission = super::voice_pcm::VOICE_ADMISSION.lock();
+    if pressed && super::voice_pcm::external_voice_active() { return; }
     // 抬起必须优先释放按下时记录的原始组合键；此时配置可能已关闭、丢失或变更。
     if !pressed {
         force_release_voice_shortcut("remote_up");
@@ -1676,6 +1679,52 @@ fn voice_injection_route_label(route: VoiceInjectionRoute) -> &'static str {
         VoiceInjectionRoute::SendInput => "send_input",
         VoiceInjectionRoute::SendInputFallback => "send_input_fallback",
     }
+}
+
+pub(crate) fn voice_in_progress() -> bool {
+    VOICE_PERIOD_ACTIVE.load(Ordering::Acquire) || VOICE_SESSION.lock().is_active()
+}
+
+/// Device-independent IME shortcut owner. Reuses the tested injection/release
+/// policies without changing Xiaomi configuration or its firmware F5 guards.
+pub(crate) struct IndependentVoiceShortcut {
+    keys: Vec<u16>,
+    profile: Option<VoiceInputProfile>,
+    route: Option<VoiceInjectionRoute>,
+}
+impl IndependentVoiceShortcut {
+    pub(crate) fn press(keys: &[u16], profile: &str, hold: bool) -> Result<Self, String> {
+        let profile = serde_json::from_value::<VoiceInputProfile>(serde_json::Value::String(profile.into())).ok();
+        if !hold && is_wechat_start_voice_shortcut(keys, profile) {
+            tap_wechat_start_voice_shortcut(keys).ok_or("微信语音快捷键发送失败")?;
+            return Ok(Self { keys: keys.to_vec(), profile, route: None });
+        }
+        let Some(route) = inject_voice_shortcut_down(keys, profile) else {
+            compensate_voice_shortcut_down(keys);
+            return Err("语音快捷键发送失败，请检查目标程序权限或虚拟键盘状态".into());
+        };
+        let mut shortcut = Self { keys: keys.to_vec(), profile, route: Some(route) };
+        if !hold {
+            std::thread::sleep(Duration::from_millis(70));
+            if !shortcut.release() { return Err("语音快捷键释放失败".into()); }
+        }
+        Ok(shortcut)
+    }
+    fn release(&mut self) -> bool {
+        let Some(route) = self.route else { return true; };
+        for _ in 0..3 {
+            if release_voice_shortcut(&self.keys, route, self.profile) { self.route = None; return true; }
+        }
+        if route == VoiceInjectionRoute::VirtualHid {
+            crate::bridges::xiaomi::hid_injector::reset_and_retry();
+            if key_chord(&self.keys, true) && wait_for_owned_modifiers_released(&self.keys) { self.route = None; return true; }
+        }
+        log::error!("HISENSE VOICE failed to release owned shortcut");
+        false
+    }
+}
+impl Drop for IndependentVoiceShortcut {
+    fn drop(&mut self) { self.release(); }
 }
 
 /// Diagnostic-only view of the route fixed for the active voice press.
@@ -2177,6 +2226,7 @@ fn owned_modifiers_released(vks: &[u16], log_stuck_key: bool) -> bool {
 
 /// ATVV opcode 路径调用（对齐 VoiceShortcut.press/release/tap）
 pub fn voice_from_atvv(app: &AppHandle, opcode: u8) {
+    if super::voice_pcm::external_voice_active() { return; }
     match opcode {
         0x04 => on_remote_button(app, "mic", true),
         0x00 => on_remote_button(app, "mic", false),

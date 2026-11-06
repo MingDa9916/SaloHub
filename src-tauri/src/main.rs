@@ -4,6 +4,9 @@
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
+        Some("hisense-driver") => {
+            std::process::exit(nexus_prime_lib::bridges::hisense::driver::run_cli(&args));
+        }
         Some("xiaomi-hid-injector") => {
             let code =
                 nexus_prime_lib::bridges::xiaomi::hid_tap_injector::run_injector_cli(&args);

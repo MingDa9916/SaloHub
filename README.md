@@ -4,6 +4,8 @@
 
 <p align="center"><strong>Native · Lightweight · Local-first</strong></p>
 
+> 此分支为海信灵指 CRF3C65 / DRF3U65 适配测试版，新增独立设备页、全部按键映射项、语音动作和指向防抖。使用方式与实机验证边界见 [海信适配说明](docs/HISENSE.md)。
+
 <p align="center">
   面向 Windows 的小米遥控器 2 Pro 桌面桥接工具。<br />
   把遥控器按键变成可自定义的快捷键，把 ATVV 语音路由进输入法。<br />

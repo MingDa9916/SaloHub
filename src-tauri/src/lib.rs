@@ -22,6 +22,9 @@ use tauri::{Manager, RunEvent};
 
 /// 退出前统一清理：停桥接 + HID Tap + 卸键盘钩子，避免进程残留
 fn cleanup_on_exit(app: &tauri::AppHandle) {
+    if let Some(runtime) = app.try_state::<std::sync::Arc<bridges::hisense::Runtime>>() {
+        runtime.stop();
+    }
     if let Some(runtime) =
         app.try_state::<std::sync::Arc<bridges::xiaomi::connect::XiaomiRuntime>>()
     {
@@ -107,7 +110,9 @@ pub fn run() {
             std::env::set_var("REMOTE_BRIDGE_LOG_PATH", &log_path);
             std::env::set_var("REMOTE_BRIDGE_LOG_DIR", config_manager.logs_dir());
             std::env::set_var("REMOTE_BRIDGE_LOG_RETENTION_DAYS", log_retention_days.to_string());
+            let hisense_path = config_manager.config_dir().join("hisense.json");
             app.manage(config_manager);
+            app.manage(std::sync::Arc::new(bridges::hisense::Runtime::new(hisense_path)));
             if let Ok(settings) = app.state::<config::manager::ConfigManager>().get_global_settings() {
                 audio::microphone_router::apply_settings(
                     settings.remote_microphone_always_on,
@@ -260,9 +265,25 @@ pub fn run() {
                 })?;
 
             log::info!("Nexus Prime started successfully");
+            let hisense = app.state::<std::sync::Arc<bridges::hisense::Runtime>>();
+            if hisense.auto_connect() {
+                if let Err(error) = hisense.inner().start(app.handle().clone()) {
+                    log::warn!("HISENSE auto-connect failed: {error}");
+                }
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            bridges::hisense::hisense_status,
+            bridges::hisense::hisense_config,
+            bridges::hisense::hisense_save_config,
+            bridges::hisense::hisense_export_mappings,
+            bridges::hisense::hisense_import_mappings,
+            bridges::hisense::hisense_reset_mappings,
+            bridges::hisense::hisense_start,
+            bridges::hisense::hisense_stop,
+            bridges::hisense::hisense_learn,
+            bridges::hisense::hisense_setup_receiver,
             ipc::commands::get_device_status,
             ipc::commands::start_bridge,
             ipc::commands::stop_bridge,
