@@ -95,6 +95,7 @@ InstallDir "${PLACEHOLDER_INSTALL_DIR}"
 
 VIProductVersion "${VERSIONWITHBUILD}"
 VIAddVersionKey "ProductName" "${PRODUCTNAME}"
+VIAddVersionKey "CompanyName" "${MANUFACTURER}"
 VIAddVersionKey "FileDescription" "${PRODUCTNAME}"
 VIAddVersionKey "LegalCopyright" "${COPYRIGHT}"
 VIAddVersionKey "FileVersion" "${VERSION}"
@@ -387,7 +388,7 @@ Function PageLeaveReinstall
       ReadRegStr $R1 HKLM "$R6" "UninstallString"
       ExecWait '$R1' $0
     ${Else}
-      ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+      StrCpy $4 $PreviousInstallDir
       ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
       ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
       ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
@@ -535,7 +536,7 @@ Function .onInit
 
   ; Keep this separate from $INSTDIR so upgrades can offer a new directory
   ; while still knowing which old program files must be removed.
-  ReadRegStr $PreviousInstallDir SHCTX "${MANUPRODUCTKEY}" ""
+  Call FindPreviousInstallLocation
   StrCpy $InstallDirChanged 0
 
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
@@ -951,10 +952,22 @@ Section Uninstall
   ${EndIf}
 SectionEnd
 
+Function FindPreviousInstallLocation
+  ReadRegStr $PreviousInstallDir SHCTX "${MANUPRODUCTKEY}" ""
+  ; Retain the installation directory when changing the publisher of this fork.
+  ${If} $PreviousInstallDir == ""
+    ReadRegStr $PreviousInstallDir SHCTX "Software\lightyear\${PRODUCTNAME}" ""
+  ${EndIf}
+  ${If} $PreviousInstallDir == ""
+    ReadRegStr $PreviousInstallDir SHCTX "Software\Light year\${PRODUCTNAME}" ""
+  ${EndIf}
+  ClearErrors
+FunctionEnd
+
 Function RestorePreviousInstallLocation
-  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-  StrCmp $4 "" +2 0
-    StrCpy $INSTDIR $4
+  ${If} $PreviousInstallDir != ""
+    StrCpy $INSTDIR $PreviousInstallDir
+  ${EndIf}
 FunctionEnd
 
 ; GUI upgrades deliberately show the directory page. If the user changes it,

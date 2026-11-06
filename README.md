@@ -1,431 +1,62 @@
-<p align="center">
-  <img src="./image/banner.png" width="100%" alt="Nexus Prime" />
-</p>
+# Nexus Prime · 海信增强版
 
-<p align="center"><strong>Native · Lightweight · Local-first</strong></p>
+面向 Windows 10 / 11 的小米、海信遥控器控制工具，由 **MingDa9916** 维护。
 
-> 此分支为海信灵指 CRF3C65 / DRF3U65 适配测试版，新增独立设备页、全部按键映射项、语音动作和指向防抖。使用方式与实机验证边界见 [海信适配说明](docs/HISENSE.md)。
+[项目仓库](https://github.com/MingDa9916/Nexus-Prime-Hisense) · [下载安装包](https://github.com/MingDa9916/Nexus-Prime-Hisense/releases) · [反馈问题](https://github.com/MingDa9916/Nexus-Prime-Hisense/issues)
 
-<p align="center">
-  面向 Windows 的小米遥控器 2 Pro 桌面桥接工具。<br />
-  把遥控器按键变成可自定义的快捷键，把 ATVV 语音路由进输入法。<br />
-  蓝牙、音频与 HID 全链路在本机回环完成，不需要 API Key，也不依赖远程服务器。
-</p>
+## 当前版本
 
-<p align="center">
-  <a href="https://github.com/LightyearXizIl/Nexus-Prime/stargazers"><img src="https://img.shields.io/github/stars/LightyearXizIl/Nexus-Prime?style=flat&amp;label=Stars&amp;labelColor=3A3A3A&amp;color=111111&amp;logo=github&amp;logoColor=white" alt="Stars" /></a>
-  <a href="https://github.com/LightyearXizIl/Nexus-Prime/releases/latest"><img src="https://img.shields.io/github/v/release/LightyearXizIl/Nexus-Prime?style=flat&amp;label=Release&amp;labelColor=3A3A3A&amp;color=111111&amp;sort=semver" alt="Release" /></a>
-  <img src="https://img.shields.io/badge/Desktop-Windows%2010%20%7C%2011-111111?style=flat&amp;labelColor=3A3A3A" alt="Desktop" />
-  <img src="https://img.shields.io/badge/Bridge-Local%20only-111111?style=flat&amp;labelColor=3A3A3A" alt="Bridge" />
-</p>
+`0.5.6-hisense.4`：完善支持设备和维护者信息，移除赞赏与旧项目展示入口；包含已集成的海信 UWB、触摸、语音和高级按键映射功能。
 
-<p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/github/license/LightyearXizIl/Nexus-Prime?style=flat&amp;label=License&amp;labelColor=3A3A3A&amp;color=111111" alt="License" /></a>
-  <img src="https://img.shields.io/badge/Stack-Rust%20%C2%B7%20Tauri%202%20%C2%B7%20Vue%203-111111?style=flat&amp;labelColor=3A3A3A" alt="Stack" />
-  <img src="https://img.shields.io/badge/Runtime-WebView2-111111?style=flat&amp;labelColor=3A3A3A" alt="Runtime" />
-</p>
+仓库为私有时，需要登录有访问权限的 GitHub 账号下载安装包。应用中的“查看更新与安装包”直接打开本项目发布页，不会下载原项目的安装包。
 
-<p align="center">
-  <a href="https://github.com/LightyearXizIl/Nexus-Prime/releases/latest"><img src="https://img.shields.io/badge/DOWNLOAD%20FOR%20WINDOWS-FF6B00?style=for-the-badge&amp;logo=windows&amp;logoColor=white" alt="Download for Windows" /></a>
-  <a href="#使用方法"><img src="https://img.shields.io/badge/USER%20GUIDE-1F6FEB?style=for-the-badge&amp;logo=readthedocs&amp;logoColor=white" alt="User Guide" /></a>
-  <a href="https://github.com/LightyearXizIl/Nexus-Prime/issues"><img src="https://img.shields.io/badge/REPORT%20ISSUE-22C7DE?style=for-the-badge&amp;logo=github&amp;logoColor=white" alt="Report Issue" /></a>
-</p>
+## 支持设备
 
-<p align="center">
-  <a href="https://github.com/LightyearXizIl"><img src="https://img.shields.io/badge/GITHUB-FOLLOW%20%40LightyearXizIl-000000?style=for-the-badge&amp;logo=github&amp;logoColor=white&amp;labelColor=000000" alt="Follow on GitHub" /></a>
-</p>
-
-<p align="center">
-  <a href="#项目简介">项目简介</a> ·
-  <a href="#最近更新">最近更新</a> ·
-  <a href="#软件截图">软件截图</a> ·
-  <a href="#功能特点">功能特点</a> ·
-  <a href="#快速开始">快速开始</a> ·
-  <a href="#使用方法">使用方法</a> ·
-  <a href="#开发运行">开发运行</a> ·
-  <a href="#项目目录结构">目录结构</a> ·
-  <a href="#常见问题">常见问题</a> ·
-  <a href="#开源许可证">许可证</a>
-</p>
-
-## 项目简介
-
-Nexus Prime 是一款面向 Windows 的小米遥控器 2 Pro 桌面桥接工具。它通过蓝牙读取遥控器按键与 ATVV 语音数据，把按键转换为可自定义的键盘快捷键，并将语音路由到虚拟声卡，供输入法或其他语音软件使用。
-
-| 项目 | 说明 |
+| 设备 | 连接与功能 |
 | --- | --- |
-| 当前版本 | v0.5.5 |
-| 技术栈 | Rust · Tauri 2 · Vue 3 · TypeScript |
-| 运行平台 | Windows 10 / 11（64 位） |
-| 通信范围 | 蓝牙、PCM 与 HID 均绑定本机回环地址 |
-| 开源许可 | MIT（第三方组件另计） |
+| 小米蓝牙遥控器 2 Pro | 蓝牙 BLE、按键映射、ATVV 语音输入 |
+| 海信灵指 CRF3C65 / DRF3U65 | USB 接收器、UWB 指向、触屏点按和滑动、语音输入、独立按键映射 |
 
-> 本项目不需要 API Key、账号密码或远程业务服务器。音频和 HID 桥接均绑定本机回环地址。
+实际可映射的海信按键取决于接收器是否收到数据；只发送红外的按键需要硬件支持，软件无法直接接收红外。
 
-## 最近更新
+## 海信控制
 
-- **v0.5.5**（2026-10-20）：新增独立赞赏入口与微信、支付宝二维码，深色主题统一为中性黑灰，设置页保存状态合并为单个胶囊按钮。
-- **v0.5.4**（2026-10-15）：微信“启动语音输入”改为单次按键序列，两种微信预设统一走 SendInput 兼容路线，输入法预设仅在配置保存成功后显示“当前已应用”。
-- **v0.5.3**（2026-10-15）：新增“松开语音键后延迟恢复麦克风”（0–60 秒）与按键映射导入导出，诊断日志合并为单一脱敏文件。
-- **v0.5.2**（2026-10-11）：麦克风路由改为复用的隐藏后台助手，不再重复启动路由进程，避免控制台窗口抢焦点。
-- **v0.5.1**（2026-10-10）：修复麦克风路由闪退，改用隔离辅助进程，并补齐超时、设备拔出与用户手动改设备的失败保护。
+- AI 键循环三种 UWB 模式：原始触摸、长按移动、长按滑动。
+- 触摸圆点、按下变色扩散、防抖及慢移精细瞄准。
+- 单击、双击、三击、四连击、独立长按；支持键盘组合、文字、应用启动、鼠标操作和语音输入。
+- 实物遥控器预览与映射列表联动，支持按键学习、手动组合快捷键和映射导入导出。
+- 设置自动保存；暂停、断连和快捷键录入时释放输出并取消待触发动作。
 
-详细变更记录见 [CHANGELOG.md](./CHANGELOG.md)。
+[海信使用与联调记录](docs/HISENSE.md) · [映射逻辑说明](docs/HISENSE-MAPPING.md)
 
-## 软件截图
+## 安装
 
-以下为 v0.5.5 的浏览器界面预览，设备和服务状态使用模拟数据，不作为真实设备验收证据。
+1. 从本项目 Releases 下载 Windows x64 安装程序并运行。
+2. 原有用户选择覆盖升级；程序配置继续使用现有配置目录。
+3. 插入海信 USB 接收器，在“海信灵指”页连接。首次启用独立映射可能需要确认管理员提示。
+4. 使用语音输入时配置 VB-CABLE 与所用输入法的语音快捷键。声音有电平不代表输入法已完成识别。
 
-<p align="center">
-  <img src="./image/首页-v0.5.5-preview.png" width="100%" alt="Nexus Prime 首页" />
-</p>
+程序需要 Microsoft Edge WebView2 Runtime。海信接收器管理仅调整对应接收器输入接口，麦克风仍使用系统音频驱动。
 
-| 按键映射 | 全局设置 |
-| :---: | :---: |
-| ![Nexus Prime 按键映射](./image/按键映射-v0.5.5-preview.png) | ![Nexus Prime 全局设置](./image/设置-v0.5.5-preview.png) |
+## 开发与构建
 
-截图文件统一存放在 [`image/`](./image/)。
-
-## 功能特点
-
-### 连接与自动恢复
-
-- 区分已配对与真实蓝牙在线，遥控器关机时显示“已配对，等待遥控器”；
-- 遥控器延后开机、重新连接或系统唤醒后，自动恢复 ATVV 和按键桥接；
-- 检测端口或进程冲突，并提供 ATVV 修复与按键桥接重启。
-
-### 按键映射
-
-- 为电源、方向、确认、返回、主页、菜单、音量、TV 和语音键配置快捷键；
-- 支持单击、长按等触发方式及多键组合；
-- 支持导出、导入按键映射配置，导入前校验格式与版本，失败保留原配置；
-- 通过 HID Tap 处理返回键、音量键等系统 HID 报告。
-
-### 语音链路
-
-- 订阅 ATVV 语音通道，解码并路由音频到 VB-CABLE；
-- 按住语音键临时切换默认麦克风，松开后默认等待 5 秒恢复，支持关闭延迟或调整为 0–60 秒；
-- 内嵌 WinUHid 虚拟键盘：让豆包、微信等会过滤普通模拟按键的输入法，也能收到语音快捷键；
-- 检测并修复 VB-CABLE 虚拟声卡环境。
-
-### 诊断与日志
-
-- 提供实时音频状态、连接日志和故障提示；
-- 电脑环境、会话状态与运行记录保存在同一日志中，“复制日志”和“导出日志”一起带出并脱敏。
-
-### 界面与系统集成
-
-- 首页提供声卡、虚拟键盘、ATVV 与按键桥接的一键修复，修复过程互斥并显示结果；
-- 支持托盘运行、可选开机自启与登录时最小化、深浅主题和单实例启动；
-- 深色主题采用中性黑灰；全局设置提供独立赞赏入口与微信、支付宝二维码。
-
-## 系统要求
-
-### 运行软件
-
-| 项目 | 要求 |
-| --- | --- |
-| 操作系统 | Windows 10 / 11，64 位 |
-| 蓝牙 | 支持 BLE，且遥控器已在 Windows 中完成配对 |
-| WebView | Microsoft Edge WebView2 Runtime |
-| 语音路由 | VB-Audio VB-CABLE |
-
-### 从源码开发
-
-| 工具 | 要求 |
-| --- | --- |
-| Node.js | 18.x 或 20+，建议使用当前 LTS |
-| npm | 随 Node.js 安装 |
-| Rust | `rustup` 安装的 stable MSVC 工具链 |
-| C++ 工具链 | Visual Studio Build Tools，勾选“使用 C++ 的桌面开发” |
-| WebView2 | Windows 10/11 通常已安装 |
-
-Windows 依赖可参考 [Tauri 2 官方准备工作](https://v2.tauri.app/start/prerequisites/)。
-
-## 快速开始
-
-### 使用发布版
-
-从 [GitHub Releases](https://github.com/LightyearXizIl/Nexus-Prime/releases) 下载 NSIS 安装包：
-
-- NSIS：`Nexus.Prime_0.5.5_x64-setup.exe`
-
-当前正式版：[v0.5.5 Release](https://github.com/LightyearXizIl/Nexus-Prime/releases/tag/v0.5.5)。
-
-安装步骤：
-
-1. 下载与你的 Windows 架构匹配的安装包；
-2. 运行安装程序；
-3. 若系统提示缺少 WebView2，请安装 Microsoft Edge WebView2 Runtime；
-4. 在 Windows 蓝牙设置中配对小米遥控器 2 Pro；
-5. 启动 Nexus Prime，并按界面提示检查 VB-CABLE。
-
-从旧版升级时直接运行新版安装包即可原位覆盖，不需要先卸载；按键映射、连击、长按与全局设置会继续保存在应用数据目录中。
-
-VB-CABLE 安装可能需要管理员权限和重启。其许可证与再分发条件见 [第三方组件声明](./THIRD_PARTY_NOTICES.md)。
-
-### 自动连接与等待状态
-
-- 已配对但遥控器离线：保持等待，遥控器上线后自动恢复，无需点修复按钮。
-- 蓝牙在线但语音订阅未完成：显示“已连接，语音连接中”；ATVV Control 和 Audio 都订阅成功才算语音就绪。
-- 手动点击“断开连接”会停止本次自动恢复；再次点击连接或下次启动应用才重新启用。
-- 状态依据 Windows 蓝牙链路，不依据是否最近按键或发送音频；离线清除电量，不删除配置、映射或输入法预设。
-
-> v0.5.4 自动化与真机验收分开记录。本机用户已确认微信 Ctrl+Win 可由遥控器调用、“按住说话”在开启“始终使用遥控器麦克风”时可用；在本版前置固件按键拦截调整后，用户进一步确认本次微信语音真机验收已完成。该结论依据用户现场反馈，不代表所有电脑或输入法均已验证。千问闲置后首次按键的波形等待尚未确认根因，不能把音频发送成功等同于输入法已开始识音。
-
-### 自动更新机制
-
-应用内自动更新会优先读取 GitHub Release 随包发布的 `latest.json`，避免 GitHub API 的匿名请求额度影响检查；仓库清单和 GitHub API 仅作为兼容回退。发布新版本时请使用 `vX.Y.Z` 标签，并上传唯一的 `Nexus.Prime_X.Y.Z_x64-setup.exe` 安装包及其 `latest.json`；清单提供安装包 SHA-256，下载完成后仍会校验完整性。
-
-若 v0.3.6 或 v0.3.7 的“检查更新”提示 GitHub `403` 或“检查失败”，请直接下载安装 v0.3.9；旧版没有清单优先与限流恢复机制，重启应用不会修复 GitHub 的匿名请求额度。v0.3.9 在“自动检查更新”开启时会在启动、每 6 小时、窗口恢复且到期时检查；限流响应含恢复时间时会提前自动重试。
-
-### 从源码构建安装包
-
-完成“开发运行”中的环境准备后执行：
+需要 Node.js 20+、Rust stable MSVC、Visual Studio C++ Build Tools 和 WebView2。
 
 ```powershell
+git clone https://github.com/MingDa9916/Nexus-Prime-Hisense.git
+cd Nexus-Prime-Hisense
 npm ci
-npm run tauri:build
-```
-
-常见产物位于：
-
-```text
-src-tauri/target/release/nexus-prime.exe
-src-tauri/target/release/bundle/msi/
-src-tauri/target/release/bundle/nsis/
-```
-
-## 使用方法
-
-1. 在 Windows 设置中完成遥控器蓝牙配对；
-2. 启动 Nexus Prime，等待首页显示“已连接”；
-3. 打开“按键映射”，为每个遥控器按键设置触发方式和快捷键；
-4. 点击遥控器卡片或列表项可快速定位对应映射；
-5. 如需语音输入，在首页运行“声卡检测与修复”，确认 VB-CABLE 已安装；
-6. 关闭“始终使用遥控器麦克风”时，程序按下语音键会临时切到 `CABLE Output (VB-Audio Virtual Cable)`，松开后恢复原默认录音设备；目标输入法需要从 CABLE 接收遥控器音频，若它固定选择了其他麦克风，请核对其录音设备设置；
-7. 确保输入法听写快捷键与 Nexus Prime 中的语音键映射一致；千问输入法可选 `左 Ctrl`、`左 Ctrl + 左 Win`、`左 Win + 左 Alt` 或 `右 Alt`，请在“输入法设置 → 千问”中应用与千问一致的一项。微信输入法有两种语音模式：“启动语音输入”使用 `左 Ctrl + 左 Win`，“按住说话”使用 `左 Ctrl + 左 Shift + D`。请在 Nexus Prime 的输入法设置中应用与微信输入法相同的模式；即使微信输入法同时启用两项，Nexus Prime 每次也只会发送当前选择的一种。“按住说话”会在遥控器松开时结束并把文字放入当前输入框，不会自动发送 Enter；
-8. 如果网页键盘测试能显示按键、但豆包或微信没有反应，在首页点击“修复虚拟键盘”，接受 Windows 管理员确认；如结果提示需要重启，请重启 Windows 后再测试；
-9. 若音频无波形或出现“ATVV 未连接”，使用“修复 ATVV 连接”；
-10. 关闭窗口时可按设置最小化到托盘，之后从托盘重新打开或退出。
-
-首次启动默认显示设置界面，不会自动开启开机自启。完成配置后，可在“全局设置”开启“开机自启”；若同时开启“开机自启时最小化到托盘”，仅 Windows 登录自启会隐藏主窗口，手动启动仍会显示窗口。
-
-首次启用 HID Tap、安装虚拟键盘或安装虚拟声卡时，Windows 可能显示 UAC 提权提示。VB-CABLE 对话框中的“下载官方驱动包”会让你选择保存位置，再校验 HTTP 状态、大小、ZIP 头和固定 SHA-256；完成后只提示手动解压安装，不会自动提权或安装。也可以从 [VB-Audio 官方下载页](https://vb-audio.com/Cable/) 打开官网；其 Donationware 与分发限制请参阅 [VB-Audio 授权说明](https://vb-audio.com/Services/licensing.htm)。
-
-### 麦克风恢复延迟
-
-在“全局设置 → 通用”中设置“松开语音键后延迟恢复麦克风”，默认开启并等待 5 秒，可调整为 0–60 秒；关闭或设置为 0 时立即恢复。该延迟只作用于默认麦克风恢复，语音快捷键仍在松手时立即释放。
-
-等待期间再次按下语音键会取消上次恢复；如果你手动选择了其他默认麦克风，程序保留你的选择。“始终使用遥控器麦克风”开启时不执行松手恢复；断连、重启桥接、切换模式和退出会立即清理。临时路由不会把输入法永久固定到 CABLE，日常使用的无线麦克风可以继续保留。
-
-### 导入与导出映射
-
-“按键映射”页的“导出配置”和“导入配置”只处理遥控器按键映射，不包含电脑环境、蓝牙信息或全局麦克风设置。导入时先校验文件格式、版本与字段，通过后一次性替换映射；失败时保留当前配置，并显示错误原因。
-
-### 电池显示
-
-Nexus Prime 保持自身的电池图标和充电动画。电量大于等于 30% 为绿色，10%–29% 为黄色，低于 10% 为红色；设备未上报电量时显示灰色空电池和“—”。充电流光仅在电量已知且设备明确上报充电时显示，不会把低电量改成绿色。
-
-## 开发运行
-
-### 1. 获取源码
-
-```powershell
-git clone https://github.com/LightyearXizIl/Nexus-Prime.git
-cd Nexus-Prime
-```
-
-项目主页：[GitHub：LightyearXizIl/Nexus-Prime](https://github.com/LightyearXizIl/Nexus-Prime)
-
-### 2. 安装依赖
-
-```powershell
-npm ci
-```
-
-`package-lock.json` 和 `src-tauri/Cargo.lock` 已纳入版本控制，用于复现依赖版本。
-
-### 3. 启动桌面应用
-
-```powershell
 npm run tauri:dev
 ```
 
-首次编译 Rust 依赖会花费较长时间。
-
-### 4. 仅启动前端
-
 ```powershell
-npm run dev
-```
-
-仅启动前端时无法使用蓝牙、音频、托盘和本地 IPC 功能。
-
-### 5. 运行检查
-
-```powershell
-npm run build
+npm test
 cargo check --locked --all-targets --manifest-path src-tauri/Cargo.toml
-npm run tauri -- build --debug --no-bundle
+npm run tauri -- build --bundles nsis
 ```
 
-如果 PowerShell 的执行策略阻止 `npm.ps1`，可使用：
+PowerShell 如阻止 npm 脚本，可将 `npm` 改成 `npm.cmd`。安装包输出至 `src-tauri/target/release/bundle/nsis/`。
 
-```powershell
-npm.cmd ci
-npm.cmd run tauri:dev
-```
+## 开源许可
 
-## 环境变量
-
-项目不需要真实密钥。可选变量已集中记录在 [`.env.example`](./.env.example)。
-
-Rust 后端不会自动读取 `.env` 文件；需要覆盖变量时，请在启动前通过终端设置：
-
-```powershell
-$env:RUST_LOG = "info"
-npm run tauri:dev
-```
-
-常用变量：
-
-| 变量 | 用途 |
-| --- | --- |
-| `TAURI_DEV_HOST` | 指定 Tauri/Vite 开发主机；不设置时仅本机访问 |
-| `RUST_LOG` | 开发日志过滤级别 |
-| `REMOTE_BRIDGE_XIAOMI_HID_TAP_PORT` | 覆盖 HID Tap 本地端口，默认 `30684` |
-| `REMOTE_BRIDGE_XIAOMI_GADGET_ARCHIVE` | 指定本地 Frida Gadget 压缩包 |
-| `REMOTE_BRIDGE_XIAOMI_VB_CABLE_ZIP` | 指定本地 VB-CABLE ZIP |
-| `REMOTE_BRIDGE_WINUHID_DLL` | 指定本地 WinUHid DLL |
-| `REMOTE_BRIDGE_XIAOMI_RUNTIME_ID` | 覆盖 ProgramData 中的运行目录名 |
-| `REMOTE_BRIDGE_XIAOMI_FORCE_GATT_HID` | 高级兼容开关；仅在明确需要时设为 `1` |
-
-不要把真实凭据或包含个人路径的 `.env` 提交到仓库。
-
-## 本地端口与数据
-
-- PCM 语音路由：UDP `127.0.0.1:31680`
-- HID Tap：TCP `127.0.0.1:30684`
-- Vite 开发服务器：`http://localhost:1430`
-
-这些服务默认只监听本机回环地址，不是公网服务器。
-
-应用配置和日志写入 Windows 应用数据目录，不应存放在源码仓库。运行日志按日保存为 `app-YYYY-MM-DD.log`，默认保留最近 7 天，可在“全局设置 → 通用”中改为 1、3、7、14 或 30 天；单日超过 10MB 会创建连续分段但不会提前丢弃内容。
-
-电脑环境、应用版本、设备与语音会话摘要和运行事件写在同一个 `.log` 中。“复制日志”与“导出日志”使用同一份脱敏内容，不需要另找诊断包；当前日志会刷新环境与运行摘要，旧日志保留当时已有的信息，不会补入今天的电脑环境。日志记录会话、事件序号和音频阶段耗时，帮助区分快捷键、ATVV、解码、UDP 与输出状态；这些记录不能证明输入法已经识音或提交文字。分享前仍可检查日志内容，确认没有其他需要隐藏的个人信息。
-
-## 项目目录结构
-
-```text
-.
-├── image/                         # README 软件截图
-├── src/                           # Vue 3 前端
-│   ├── assets/                    # 图片与使用引导
-│   ├── components/                # 设备状态、导航和按键映射组件
-│   ├── router/                    # 前端路由
-│   ├── stores/                    # Pinia 状态
-│   ├── types/                     # TypeScript 类型
-│   └── views/                     # 首页、映射和全局设置页面
-├── src-tauri/                     # Tauri / Rust 后端
-│   ├── assets/                    # 运行所需脚本与第三方资源
-│   ├── capabilities/              # Tauri 权限
-│   ├── examples/                  # 诊断示例
-│   ├── icons/                     # 桌面与移动端图标
-│   └── src/
-│       ├── audio/                 # PCM、UDP 与 VB-CABLE
-│       ├── bridges/               # BLE、HID Tap 与按键处理
-│       ├── config/                # 配置管理
-│       └── ipc/                   # Tauri 命令与托盘
-├── .env.example                   # 可选环境变量模板
-├── CONTRIBUTING.md                # 贡献指南
-├── LICENSE                        # 项目自有源码的 MIT License
-├── THIRD_PARTY_NOTICES.md         # 第三方组件与再分发说明
-├── package.json
-└── README.md
-```
-
-## 常见问题
-
-### 找不到遥控器或一直连接失败
-
-确认遥控器已在 Windows 蓝牙设置中配对，并关闭可能同时占用该设备的旧版桥接程序。随后重新启动 Nexus Prime。
-
-### 网页键盘测试有按键，但豆包、微信等输入法没有反应
-
-先确认首页音频信号正常、输入法麦克风为 `CABLE Output`，并核对输入法与 Nexus Prime 中实际选择的听写快捷键。网页收到按键不能证明输入法已响应，需结合发送路线和真实语音面板判断。
-
-v0.5.4 的微信两种预设使用 SendInput，日志为 `route=send_input`。千问、豆包等保留虚拟键盘优先策略，日志为 `route=virtual_hid`；WinUHid 不可用时回退为 `route=send_input_fallback`。出现虚拟键盘降级提示时，可在首页点击“修复虚拟键盘”，按提示完成后再试。这些路线日志只说明程序的发送方式，不等同于输入法已打开面板或识别到文字。
-
-如果按一次遥控器语音键出现两个微信语音面板，请在 Nexus Prime 的“输入法设置 → 微信”重新应用所需模式。旧版 `wechat-hold` 配置会自动迁移到推荐的“按住说话”（`左 Ctrl + 左 Shift + D`），避免把微信的 Ctrl+Win 启动快捷键当成长按组合持续发送。
-
-语音键每次按压只会建立一个会话：微信 Ctrl+Win 在 DOWN 完成一次短脉冲；微信 Ctrl+Shift+D 与千问的四种语音快捷键均在 UP 按原路径释放。F5、Ctrl、Win 的固件泄漏仅在本次语音周期内被处理；若日志出现 `hook bump timed out`、`modifier recovery` 或 `release recovery`，请保留当天日志用于排查。
-
-### 显示“ATVV 未连接”
-
-点击“修复 ATVV 连接”。应用会按顺序清理已知冲突、重启 HID Tap 并重新订阅语音通道。
-
-### 返回键或音量键无效
-
-尝试“重启按键桥接”。HID Tap 需要访问 Windows HID 主机进程，首次启动可能要求管理员权限。
-
-### 端口被占用
-
-不要同时运行旧版 Python 桥接或另一个 Nexus Prime 实例。默认冲突端口为 `31680` 和 `30684`。
-
-### `npm` 在 PowerShell 中提示禁止运行脚本
-
-使用 `npm.cmd`，或根据组织安全策略调整 PowerShell 执行方式。无需为了运行本项目关闭系统安全软件。
-
-### 构建 MSI 失败
-
-确认 Visual Studio C++ Build Tools 已安装；构建 MSI 时还可能需要启用 Windows 的 VBSCRIPT 可选功能。参见 Tauri 官方 Windows 安装包文档。
-
-## 安全与隐私
-
-- 仓库不应包含 `.env`、API Key、Token、密码、Cookie、私钥或签名文件；
-- 不要提交真实蓝牙 MAC、用户目录、日志、录音、注册表导出或崩溃转储；
-- `.gitignore` 已覆盖常见环境变量文件、凭据、密钥、日志、构建目录和本地数据；
-- 提交前建议再次执行敏感信息扫描并检查 `git diff --cached`。
-
-如发现安全问题，请不要在公开 Issue 中粘贴密钥、完整日志或设备标识。
-
-## 第三方组件
-
-项目可能随应用使用：
-
-- VB-Audio VB-CABLE；
-- Frida Gadget；
-- 内嵌的 WinUHid 虚拟键盘组件与驱动。
-
-它们不属于本项目 MIT License 的授权范围。来源、校验值和再分发注意事项见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
-
-## 参与贡献
-
-欢迎提交 Issue 和 Pull Request。请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)，并确保提交内容不含个人数据、设备标识或无授权的第三方资源。
-
-## 开源许可证
-
-项目自有源码采用 [MIT License](./LICENSE)。
-
-MIT License 允许使用、复制、修改、合并、发布、分发、再许可和销售软件副本，但必须保留版权与许可声明，且软件按“原样”提供、不附带担保。
-
-第三方组件、品牌和资源继续受各自条款约束，详见 [第三方组件声明](./THIRD_PARTY_NOTICES.md)。
-
-## 致谢与相关项目
-
-- Nexus Prime
-  - 作者：Light year
-  - GitHub：[LightyearXizIl/Nexus-Prime](https://github.com/LightyearXizIl/Nexus-Prime)
-- Voice VibeCoding版
-  - 作者：mwlt
-  - Gitee：[mwlt/remote-voice-vibe-coding](https://gitee.com/mwlt/remote-voice-vibe-coding)
-  - GitHub：[mwlt/Voice_VibeCoding](https://github.com/mwlt/Voice_VibeCoding)
-- Python Windows版
-  - 作者：xxb26553663-star
-  - GitHub：[xxb26553663-star/remote-bridge-hub](https://github.com/xxb26553663-star/remote-bridge-hub)
-- macOS版
-  - 作者：nijez
-  - GitHub：[nijez/open-voice-bridge](https://github.com/nijez/open-voice-bridge)
-
-<p align="center"><sub>Windows 10 / 11 · 小米遥控器 2 Pro · MIT License</sub></p>
+本项目基于 [LightyearXizIl/Nexus-Prime](https://github.com/LightyearXizIl/Nexus-Prime) 适配开发，保留原项目历史、版权声明与 [MIT 许可证](LICENSE)。第三方组件的许可及分发说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 和 `third-party-licenses/`。

@@ -10,8 +10,6 @@ import { useLocaleStore } from "../stores/locale";
 import { useI18n } from "vue-i18n";
 import type { AppLocale } from "../i18n";
 import type { GlobalSettings, ThemePreference } from "../types";
-import lightYearAuthor from "../assets/light_year_author.jpg";
-import SupportCard from "../components/SupportCard.vue";
 
 type SectionId = "general" | "appearance" | "about";
 type LogCleanupResult = { deletedFiles: number; freedBytes: number };
@@ -72,7 +70,9 @@ onMounted(async () => {
   settingsReady.value = true;
 });
 
+const isHisenseBuild = computed(() => appVersion.value.includes("-hisense."));
 const updateControlState = computed(() => {
+  if (isHisenseBuild.value) return { label: "查看更新与安装包", tone: "idle", progress: 0, indeterminate: false, disabled: false };
   if (update.phase === "checking") {
     return { label: "正在检查…", tone: "checking", progress: 48, indeterminate: true, disabled: true };
   }
@@ -166,6 +166,7 @@ function setLanguage(event: Event) {
 }
 
 async function handleUpdateControl() {
+  if (isHisenseBuild.value) { await openExternal("https://github.com/MingDa9916/Nexus-Prime-Hisense/releases"); return; }
   if (update.phase === "installing") return;
   if (update.canOpen) {
     update.openDialog();
@@ -238,7 +239,6 @@ async function openExternal(url: string) {
             <small>{{ item.caption }}</small>
           </button>
         </aside>
-        <SupportCard />
       </div>
 
       <main class="settings-content" :aria-busy="!settingsReady">
@@ -402,29 +402,35 @@ async function openExternal(url: string) {
           <div class="about-overview">
             <div><span>当前版本</span><strong>{{ appVersion }}</strong></div>
             <div><span>技术栈</span><strong>Rust · Tauri 2 · Vue 3</strong></div>
-            <div><span>支持设备</span><strong>小米蓝牙遥控器 2 Pro</strong></div>
+            <div><span>支持设备</span><strong>小米 2 Pro · 海信灵指</strong></div>
           </div>
+          <section class="supported-devices" aria-labelledby="supported-devices-title">
+            <p id="supported-devices-title" class="credit-kicker">支持设备</p>
+            <div class="supported-device-grid">
+              <article class="supported-device"><span class="device-badge" aria-hidden="true">MI</span><div><h3>小米蓝牙遥控器 2 Pro</h3><p>蓝牙 BLE · 按键映射 · 语音输入</p></div></article>
+              <article class="supported-device"><span class="device-badge hisense" aria-hidden="true">H</span><div><h3>海信灵指 CRF3C65 / DRF3U65</h3><p>USB 接收器 · UWB 指向 · 触摸控制 · 语音输入</p></div></article>
+            </div>
+          </section>
           <div class="credits-grid">
             <section class="author-list" aria-labelledby="author-list-title">
               <p id="author-list-title" class="credit-kicker">作者与维护</p>
               <article class="author-card">
                 <div class="author-identity">
-                  <img class="author-avatar" :src="lightYearAuthor" alt="Light year" />
+                  <span class="author-avatar author-monogram" aria-hidden="true">M</span>
                   <div class="author-card-copy">
                     <p class="credit-kicker">NEXUS PRIME</p>
-                    <h3>Light year</h3>
-                    <p class="author-description">Windows 版重构与维护</p>
-                    <span class="author-contact">微信号：XizllHZ_007</span>
+                    <h3>MingDa9916</h3>
+                    <p class="author-description">海信适配与 Windows 版维护</p>
                   </div>
                 </div>
                 <button
                   class="credit-link author-project-link"
                   type="button"
-                  aria-label="打开 Nexus Prime GitHub 项目：LightyearXizIl/Nexus-Prime"
-                  @click="openExternal('https://github.com/LightyearXizIl/Nexus-Prime')"
+                  aria-label="打开 Nexus Prime GitHub 项目：MingDa9916/Nexus-Prime-Hisense"
+                  @click="openExternal('https://github.com/MingDa9916/Nexus-Prime-Hisense')"
                 >
                   <span>GitHub：</span>
-                  <small>LightyearXizIl/Nexus-Prime</small>
+                  <small>MingDa9916/Nexus-Prime-Hisense</small>
                 </button>
                 <div class="update-control">
                   <button
@@ -443,69 +449,12 @@ async function openExternal(url: string) {
                     <span class="update-orbit-track" aria-hidden="true"><i :class="{ indeterminate: updateControlState.indeterminate }" :style="{ width: `${updateControlState.progress}%` }"></i></span>
                     <span class="update-orbit-label">{{ updateControlState.label }}</span>
                   </button>
-                  <p v-if="update.checkError" class="update-check-error" role="status">{{ update.checkError }}</p>
+                  <p v-if="isHisenseBuild" class="release-note">版本与安装包由本项目发布。私有仓库需在浏览器登录 GitHub 后下载。</p>
+                  <p v-if="!isHisenseBuild && update.checkError" class="update-check-error" role="status">{{ update.checkError }}</p>
                 </div>
               </article>
             </section>
-            <section class="source-list" aria-labelledby="source-list-title">
-              <p id="source-list-title" class="credit-kicker">源码与致谢</p>
-              <div class="source-cards">
-                <article class="source-card source-card-featured">
-                  <h3>Voice VibeCoding版</h3>
-                  <p class="source-author"><span>作者：</span><strong>mwlt</strong></p>
-                  <div class="source-links">
-                    <button
-                      class="credit-link"
-                      type="button"
-                      aria-label="打开 Voice VibeCoding 版 Gitee 项目：mwlt/remote-voice-vibe-coding"
-                      @click="openExternal('https://gitee.com/mwlt/remote-voice-vibe-coding')"
-                    >
-                      <span>Gitee：</span>
-                      <small>mwlt/remote-voice-vibe-coding</small>
-                    </button>
-                    <button
-                      class="credit-link"
-                      type="button"
-                      aria-label="打开 Voice VibeCoding 版 GitHub 项目：mwlt/Voice_VibeCoding"
-                      @click="openExternal('https://github.com/mwlt/Voice_VibeCoding')"
-                    >
-                      <span>GitHub：</span>
-                      <small>mwlt/Voice_VibeCoding</small>
-                    </button>
-                  </div>
-                </article>
-                <article class="source-card">
-                  <h3>Python Windows版</h3>
-                  <p class="source-author"><span>作者：</span><strong>xxb26553663-star</strong></p>
-                  <div class="source-links">
-                    <button
-                      class="credit-link"
-                      type="button"
-                      aria-label="打开 Python Windows 版 GitHub 项目：xxb26553663-star/remote-bridge-hub"
-                      @click="openExternal('https://github.com/xxb26553663-star/remote-bridge-hub')"
-                    >
-                      <span>GitHub：</span>
-                      <small>xxb26553663-star/remote-bridge-hub</small>
-                    </button>
-                  </div>
-                </article>
-                <article class="source-card">
-                  <h3>macOS版</h3>
-                  <p class="source-author"><span>作者：</span><strong>nijez</strong></p>
-                  <div class="source-links">
-                    <button
-                      class="credit-link"
-                      type="button"
-                      aria-label="打开 macOS 版 GitHub 项目：nijez/open-voice-bridge"
-                      @click="openExternal('https://github.com/nijez/open-voice-bridge')"
-                    >
-                      <span>GitHub：</span>
-                      <small>nijez/open-voice-bridge</small>
-                    </button>
-                  </div>
-                </article>
-              </div>
-            </section>
+
           </div>
         </section>
         </template>
@@ -603,9 +552,9 @@ async function openExternal(url: string) {
 .about-overview > div { padding: 11px; border-radius: 9px; background: var(--surface-soft); }
 .about-overview span { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 10px; }
 .about-overview strong { display: block; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.credits-grid { display: grid; grid-template-columns: minmax(210px, 0.78fr) minmax(0, 1.22fr); align-items: stretch; gap: 14px; padding-top: 17px; border-top: 1px solid var(--border); }
-.author-list, .source-list { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; }
-.author-list > .credit-kicker, .source-list > .credit-kicker { margin-bottom: 8px; }
+.credits-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 14px; padding-top: 17px; border-top: 1px solid var(--border); }
+.author-list { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; }
+.author-list > .credit-kicker { margin-bottom: 8px; }
 .author-card { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; min-width: 0; padding: 14px; border-radius: 10px; background: var(--surface-soft); }
 .author-identity { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
 .author-avatar { width: 54px; height: 54px; flex: 0 0 54px; border: 1px solid var(--border); border-radius: 10px; object-fit: cover; background: #000; }
@@ -615,13 +564,6 @@ async function openExternal(url: string) {
 .author-contact { display: block; color: var(--text-muted); }
 .update-control { display: grid; gap: 7px; margin-top: auto; }
 .update-check-error { margin: 0; color: var(--danger-text); font-size: 10px; line-height: 1.4; }
-.source-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 7px; }
-.source-card { display: flex; min-width: 0; padding: 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-soft); flex-direction: column; }
-.source-card-featured { grid-column: 1 / -1; }
-.source-card h3 { margin: 0; color: var(--text); font-size: 12px; line-height: 1.35; }
-.source-author { display: flex; min-width: 0; margin: 5px 0 10px; color: var(--text-secondary); font-size: 10px; line-height: 1.4; flex-wrap: wrap; }
-.source-author strong { color: var(--text); font-weight: 700; overflow-wrap: anywhere; }
-.source-links { display: grid; gap: 6px; margin-top: auto; }
 .credit-link { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 2px; width: 100%; min-width: 0; min-height: 34px; padding: 8px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface-raised); font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease; }
 .credit-link:hover { border-color: var(--border); border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: var(--card-bg); transform: translateY(-1px); }
 .credit-link:focus-visible { border-color: var(--primary); outline: 2px solid rgb(var(--primary-rgb) / 60%); outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent); outline-offset: 2px; }
@@ -668,9 +610,7 @@ async function openExternal(url: string) {
   .theme-segmented { justify-self: stretch; }
   .theme-segmented button { flex: 1; }
   .about-overview, .credits-grid { grid-template-columns: 1fr; }
-  .author-list, .source-list { grid-template-rows: auto auto; }
-  .source-cards { grid-template-columns: 1fr; }
-  .source-card-featured { grid-column: auto; }
+  .author-list { grid-template-rows: auto auto; }
   .credit-link { min-height: 38px; }
 }
 @media (max-width: 420px) {
@@ -680,4 +620,21 @@ async function openExternal(url: string) {
   .save-button { transition: none; }
   .save-button.is-saving .save-button-icon { animation: none; }
 }
+
+.about-overview strong { white-space: normal; line-height: 1.5; }
+.supported-devices { padding: 17px 0 0; border-top: 1px solid var(--border); }
+.supported-device-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-bottom: 17px; }
+.supported-device { display: flex; gap: 12px; align-items: center; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
+.supported-device h3 { margin: 0; font-size: 13px; line-height: 1.5; }
+.supported-device p { margin: 7px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
+.device-badge { display: grid; place-items: center; width: 38px; height: 42px; flex-shrink: 0; border-radius: 10px; background: #ff690012; color: #e76a16; font-size: 15px; font-weight: 800; }
+.device-badge.hisense { color: var(--primary); background: #3478f612; }
+.author-monogram { display: grid; place-items: center; color: #fff; background: linear-gradient(135deg,#3478f6,#7162dc); font: 800 28px/1 system-ui; border: 0; }
+.author-card { grid-template-columns: minmax(0,1fr) minmax(230px,1fr); grid-template-rows: auto auto; align-items: center; gap: 16px 24px; padding: 20px; }
+.author-card .author-identity { grid-row: span 2; align-items: center; }
+.author-card h3 { font-size: 19px; }
+.author-description { margin-top: 7px; font-size: 12px; }
+.author-project-link { max-width: 100%; }
+.release-note { color: var(--text-secondary); font-size: 10px; margin: 0; line-height: 1.6; }
+@media (max-width: 1000px) { .supported-device-grid { grid-template-columns: 1fr; } .author-card { grid-template-columns: minmax(0,1fr); } .author-card .author-identity { grid-row: auto; } }
 </style>

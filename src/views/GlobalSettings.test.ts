@@ -2,6 +2,8 @@ import { flushPromises, mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n";
+import { getVersion } from "@tauri-apps/api/app";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import type { GlobalSettings } from "../types";
 import GlobalSettingsView from "./GlobalSettings.vue";
 
@@ -141,6 +143,20 @@ describe("GlobalSettings autostart tray preference", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("清理日志失败");
+  });
+
+  it("opens this private fork's release page without an anonymous update request", async () => {
+    vi.mocked(getVersion).mockResolvedValueOnce("0.5.6-hisense.4");
+    const wrapper = await mountSettings();
+    await wrapper.findAll('[role="tab"]')[2].trigger("click");
+    expect(wrapper.text()).toContain("MingDa9916");
+    expect(wrapper.text()).toContain("海信灵指 CRF3C65 / DRF3U65");
+    expect(wrapper.find(".support-card").exists()).toBe(false);
+    expect(wrapper.find(".source-list").exists()).toBe(false);
+    await wrapper.get("button.update-orbit").trigger("click"); await flushPromises();
+    expect(openUrl).toHaveBeenCalledWith("https://github.com/MingDa9916/Nexus-Prime-Hisense/releases");
+    expect(invoke.mock.calls.some(([command]) => command === "check_for_update")).toBe(false);
+    expect(wrapper.text()).not.toContain("检查失败");
   });
 
   it("keeps an update-check failure visible and retryable", async () => {

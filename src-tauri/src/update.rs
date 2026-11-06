@@ -18,11 +18,11 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, State};
 
 const LATEST_RELEASE_URL: &str =
-    "https://api.github.com/repos/LightyearXizIl/Nexus-Prime/releases/latest";
+    "https://api.github.com/repos/MingDa9916/Nexus-Prime-Hisense/releases/latest";
 const RELEASE_MANIFEST_URL: &str =
-    "https://github.com/LightyearXizIl/Nexus-Prime/releases/latest/download/latest.json";
+    "https://github.com/MingDa9916/Nexus-Prime-Hisense/releases/latest/download/latest.json";
 const REPOSITORY_MANIFEST_URL: &str =
-    "https://raw.githubusercontent.com/LightyearXizIl/Nexus-Prime/main/latest.json";
+    "https://raw.githubusercontent.com/MingDa9916/Nexus-Prime-Hisense/main/latest.json";
 const MAX_ASSET_SIZE: u64 = 512 * 1024 * 1024;
 const USER_AGENT: &str = "Nexus-Prime-Updater";
 
@@ -76,7 +76,9 @@ impl UpdateCheckError {
 
     fn rate_limited(retry_after_seconds: Option<u64>) -> Self {
         let message = match retry_after_seconds {
-            Some(seconds) if seconds < 60 => "GitHub 请求额度暂时用尽，应用将在不到 1 分钟后自动重试。".into(),
+            Some(seconds) if seconds < 60 => {
+                "GitHub 请求额度暂时用尽，应用将在不到 1 分钟后自动重试。".into()
+            }
             Some(seconds) => format!(
                 "GitHub 请求额度暂时用尽，应用将在约 {} 分钟后自动重试。",
                 (seconds + 59) / 60
@@ -307,13 +309,21 @@ fn fetch_json<T: DeserializeOwned>(
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
-        .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Network, format!("无法连接更新服务：{error}")))?;
+        .map_err(|error| {
+            UpdateCheckError::new(
+                UpdateCheckStage::Network,
+                format!("无法连接更新服务：{error}"),
+            )
+        })?;
     if !response.status().is_success() {
         return Err(http_error(&response));
     }
-    response
-        .json::<T>()
-        .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Parse, format!("读取更新信息失败：{error}")))
+    response.json::<T>().map_err(|error| {
+        UpdateCheckError::new(
+            UpdateCheckStage::Parse,
+            format!("读取更新信息失败：{error}"),
+        )
+    })
 }
 
 fn fetch_latest_release() -> Result<FetchedRelease, UpdateCheckError> {
@@ -322,7 +332,12 @@ fn fetch_latest_release() -> Result<FetchedRelease, UpdateCheckError> {
         .timeout(Duration::from_secs(15))
         .user_agent(USER_AGENT)
         .build()
-        .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Network, format!("创建更新请求失败：{error}")))?;
+        .map_err(|error| {
+            UpdateCheckError::new(
+                UpdateCheckStage::Network,
+                format!("创建更新请求失败：{error}"),
+            )
+        })?;
 
     for (url, source) in [
         (RELEASE_MANIFEST_URL, "release-manifest"),
@@ -330,7 +345,14 @@ fn fetch_latest_release() -> Result<FetchedRelease, UpdateCheckError> {
     ] {
         match fetch_json::<GithubRelease>(&client, url) {
             Ok(release) => return Ok(FetchedRelease { release, source }),
-            Err(error) if matches!(error.stage, UpdateCheckStage::Network | UpdateCheckStage::Http) => continue,
+            Err(error)
+                if matches!(
+                    error.stage,
+                    UpdateCheckStage::Network | UpdateCheckStage::Http
+                ) =>
+            {
+                continue
+            }
             Err(error) => return Err(error),
         }
     }
@@ -350,12 +372,20 @@ pub async fn check_for_update(
     let current = normalize_version(&current_version)
         .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Validation, error))?;
     if current.pre.as_str().starts_with("hisense.") {
-        return Err(UpdateCheckError::new(UpdateCheckStage::Validation,
-            "当前为海信适配测试版，请使用海信测试版安装包更新；上游正式版可能尚未包含海信功能。"));
+        // This distribution uses a private repository. Download releases through
+        // the user's browser session; never embed a GitHub credential in the app.
+        manager.state.lock().candidate = None;
+        return Ok(UpdateCheckResult {
+            current_version: format!("v{current}"),
+            update: None,
+            source: "private-repository-manual".into(),
+        });
     }
     let fetched = tokio::task::spawn_blocking(fetch_latest_release)
         .await
-        .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Task, format!("更新检查任务失败：{error}")))??;
+        .map_err(|error| {
+            UpdateCheckError::new(UpdateCheckStage::Task, format!("更新检查任务失败：{error}"))
+        })??;
     let mut candidate = candidate_from_release(fetched.release, &current)
         .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Validation, error))?;
     if let Some(found) = candidate.as_mut() {
@@ -565,7 +595,7 @@ mod tests {
                 name: "Nexus.Prime_0.0.7_x64-setup.exe".into(),
                 size: 42,
                 digest: Some(format!("sha256:{}", "a".repeat(64))),
-                browser_download_url: "https://github.com/LightyearXizIl/Nexus-Prime/releases/download/v0.0.7/Nexus%20Prime_0.0.7_x64-setup.exe".into(),
+                browser_download_url: "https://github.com/MingDa9916/Nexus-Prime-Hisense/releases/download/v0.0.7/Nexus%20Prime_0.0.7_x64-setup.exe".into(),
             }],
         };
         let candidate = candidate_from_release(release, &Version::new(0, 0, 6))
@@ -577,7 +607,10 @@ mod tests {
     #[test]
     fn reads_github_rate_limit_reset_as_retry_delay() {
         let mut headers = reqwest::header::HeaderMap::new();
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         headers.insert(
             "x-ratelimit-reset",
             reqwest::header::HeaderValue::from_str(&(now + 120).to_string()).unwrap(),
