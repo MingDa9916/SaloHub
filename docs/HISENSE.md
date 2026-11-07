@@ -200,6 +200,8 @@ AI 每次按下只切换一次，长按 AI 不另外执行滑动。左上角提�
 
 命令 / 按键 / 宏与清除 / 恢复 / 学习统一为两排三列操作；录入快捷键和手动组合移入按键弹窗。关闭弹窗会结束快捷键捕获。恢复仅针对当前按键的全部触发设置：桌面默认恢复出厂动作，应用独立配置清除本键覆盖并恢复继承；保留其他键、宏库、语音、指向和学习数据。触发方式上排三项等宽、下排两项等宽。快捷操作移入右侧映射列表下方。
 
+用户确认本轮布局和功能合适后，追加左上角按键动作提示。原生浮层按实际动作触发显示按键名称、单击 / 连击 / 长按和当前生效功能，约两秒自动消失；应用独立映射使用生效动作，宏显示宏名。模式、荧光笔和配置切换保留具体结果；自动连发和宏内部步骤不会重复刷新提示。浮层不获取焦点且允许点击穿透。
+
 透明遥控器素材使用内置 imagegen 编辑原照片并清理边缘，保存为 `src/assets/hisense-remote-cutout.png`；界面使用 CSS drop-shadow 添加阴影，保留原照片供追溯。最终清理提示词：
 
 > Background-extraction cleanup edit only. The image is already a transparent cutout of a silver Hisense remote. Remove the small isolated white/gray background scraps and edge fringe along the outside left and right of the remote, to produce one clean continuous silhouette with true transparent alpha all around. Preserve EXACTLY all remote interior pixels, shape, logos and button symbols, full canvas dimensions/composition and button positions. Do not crop, resize, move the remote, redesign or add anything. No baked shadow: CSS adds it later. There should be no disconnected opaque scraps outside the product boundary and no white matte halo.

@@ -31,6 +31,10 @@ pub enum Notice {
     Mode(Mode),
     Trail(bool),
     Profile(String),
+    Action {
+        caption: String,
+        description: String,
+    },
 }
 impl Notice {
     fn title(&self) -> &str {
@@ -39,6 +43,27 @@ impl Notice {
             Self::Trail(true) => "荧光笔开启",
             Self::Trail(false) => "荧光笔关闭",
             Self::Profile(name) => name.as_str(),
+            Self::Action { description, .. } => description.as_str(),
+        }
+    }
+    pub fn action(caption: String, description: String, previous: Option<Self>) -> Self {
+        // Keep the result of mode/profile/trail switches, instead of replacing
+        // it with the generic action name that initiated the switch.
+        let description = match previous {
+            Some(result @ (Self::Mode(_) | Self::Trail(_) | Self::Profile(_))) => {
+                result.title().to_owned()
+            }
+            _ => description,
+        };
+        Self::Action {
+            caption,
+            description,
+        }
+    }
+    fn caption(&self) -> Option<&str> {
+        match self {
+            Self::Action { caption, .. } => Some(caption.as_str()),
+            _ => None,
         }
     }
 }
@@ -400,46 +425,62 @@ impl Layer {
                 }
             }
         }
-        unsafe {
-            let mut spec = LOGFONTW {
-                lfHeight: -20,
-                lfWeight: 600,
-                lfCharSet: DEFAULT_CHARSET,
-                lfQuality: ANTIALIASED_QUALITY,
-                ..Default::default()
-            };
-            for (destination, ch) in spec
-                .lfFaceName
-                .iter_mut()
-                .zip("Microsoft YaHei UI".encode_utf16())
-            {
-                *destination = ch;
-            }
-            let font = CreateFontIndirectW(&spec);
-            if font.is_invalid() {
-                return Err("提示字体创建失败".into());
-            }
-            let previous = SelectObject(self.dc, font);
-            SetBkMode(self.dc, TRANSPARENT);
-            SetTextColor(self.dc, COLORREF(0x00ffffff));
-            let mut text: Vec<u16> = mode.title().encode_utf16().collect();
-            let mut rect = RECT {
-                left: 12,
-                top: 0,
-                right: self.width - 12,
-                bottom: self.height,
-            };
-            let drawn = DrawTextW(
-                self.dc,
-                &mut text,
-                &mut rect,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
-            );
-            let _ = GdiFlush();
-            let _ = SelectObject(self.dc, previous);
-            let _ = DeleteObject(font);
-            if drawn == 0 {
-                return Err("模式提示文字绘制失败".into());
+        let mut lines = Vec::new();
+        if let Some(caption) = mode.caption() {
+            lines.push((caption, 14, 400, 7, 30, COLORREF(0x00d5c4b5)));
+            lines.push((
+                mode.title(),
+                20,
+                600,
+                30,
+                self.height - 5,
+                COLORREF(0x00ffffff),
+            ));
+        } else {
+            lines.push((mode.title(), 20, 600, 0, self.height, COLORREF(0x00ffffff)));
+        }
+        for (label, size, weight, top, bottom, color) in lines {
+            unsafe {
+                let mut spec = LOGFONTW {
+                    lfHeight: -size,
+                    lfWeight: weight,
+                    lfCharSet: DEFAULT_CHARSET,
+                    lfQuality: ANTIALIASED_QUALITY,
+                    ..Default::default()
+                };
+                for (destination, ch) in spec
+                    .lfFaceName
+                    .iter_mut()
+                    .zip("Microsoft YaHei UI".encode_utf16())
+                {
+                    *destination = ch;
+                }
+                let font = CreateFontIndirectW(&spec);
+                if font.is_invalid() {
+                    return Err("提示字体创建失败".into());
+                }
+                let previous = SelectObject(self.dc, font);
+                SetBkMode(self.dc, TRANSPARENT);
+                SetTextColor(self.dc, color);
+                let mut text: Vec<u16> = label.encode_utf16().collect();
+                let mut rect = RECT {
+                    left: 12,
+                    top,
+                    right: self.width - 12,
+                    bottom,
+                };
+                let drawn = DrawTextW(
+                    self.dc,
+                    &mut text,
+                    &mut rect,
+                    DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
+                );
+                let _ = GdiFlush();
+                let _ = SelectObject(self.dc, previous);
+                let _ = DeleteObject(font);
+                if drawn == 0 {
+                    return Err("提示文字绘制失败".into());
+                }
             }
         }
         // GDI text clears alpha in glyph pixels; the card's text region is opaque.
@@ -498,7 +539,7 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
         SetThreadDpiAwarenessContext(-4);
     }
     let layer = Layer::new()?;
-    let toast = Layer::new_size(260, 64)?;
+    let toast = Layer::new_size(360, 78)?;
     let mut last_notice: Option<Instant> = None;
     let mut toast_visible = false;
     let mut visible = false;
@@ -632,4 +673,39 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
         layer.hide();
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn action_notice_preserves_switch_results_and_replaces_old_actions() {
+        let action = Notice::action(
+            "快捷 · 单击".into(),
+            "切换模式".into(),
+            Some(Notice::Mode(Mode::Move)),
+        );
+        assert_eq!(action.caption(), Some("快捷 · 单击"));
+        assert_eq!(action.title(), "UWB 2/2 长按移动");
+        let action = Notice::action("上 · 单击".into(), "Page Up".into(), Some(action));
+        assert_eq!(action.title(), "Page Up");
+        assert_eq!(
+            Notice::action(
+                "AI · 单击".into(),
+                "开关".into(),
+                Some(Notice::Trail(false))
+            )
+            .title(),
+            "荧光笔关闭"
+        );
+        assert_eq!(
+            Notice::action(
+                "菜单 · 单击".into(),
+                "切换配置".into(),
+                Some(Notice::Profile("配置：Chrome".into()))
+            )
+            .title(),
+            "配置：Chrome"
+        );
+    }
 }

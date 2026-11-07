@@ -150,6 +150,13 @@ impl Output {
     pub fn trail_notice(&mut self, enabled: bool) {
         self.mode_notice = Some(super::indicator::Notice::Trail(enabled));
     }
+    pub fn action_notice(&mut self, caption: String, description: String) {
+        self.mode_notice = Some(super::indicator::Notice::action(
+            caption,
+            description,
+            self.mode_notice.take(),
+        ));
+    }
     pub fn pointer_motion_active(&self) -> bool {
         self.gesture.moving(Instant::now())
     }

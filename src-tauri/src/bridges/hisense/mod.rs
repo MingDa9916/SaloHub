@@ -1,3 +1,4 @@
+mod action_notice;
 pub mod config;
 pub mod driver;
 mod gesture;
@@ -587,7 +588,7 @@ impl Runtime {
                 .map(Action::SingleKey)
                 .unwrap_or(Action::None)
         };
-        if let Some(button) = button.filter(|_| !cfg.realtime(&action)) {
+        if let Some(button) = button.clone().filter(|_| !cfg.realtime(&action)) {
             let long = cfg
                 .long_press_bindings
                 .get(&button)
@@ -623,7 +624,18 @@ impl Runtime {
                 return;
             }
         }
-        self.execute_action(app, source, action, cfg, held, out, mouse, voice, true);
+        self.execute_action(
+            app,
+            source,
+            action,
+            cfg,
+            held,
+            out,
+            mouse,
+            voice,
+            true,
+            action_notice::caption(button.as_deref(), "click:1"),
+        );
     }
     fn mapping_release(
         &self,
@@ -684,6 +696,7 @@ impl Runtime {
                         mouse,
                         voice,
                         trigger == "long",
+                        action_notice::caption(Some(&button), &trigger),
                     );
                 }
             }
@@ -701,7 +714,9 @@ impl Runtime {
         mouse: &mut MouseOwners,
         voice: &voice::Voice,
         repeat: bool,
+        caption: String,
     ) {
+        let action_label = action_notice::describe(&action, cfg, out.pointer_mode());
         let keys = match &action {
             Action::SingleKey(k) => vec![*k],
             Action::ComboKey(k) => k.clone(),
@@ -837,6 +852,7 @@ impl Runtime {
             }
             _ => {}
         }
+        out.action_notice(caption, action_label);
         let repeat_delay = if !repeat {
             86_400_000
         } else if matches!(action, Action::MouseMove(_)) {
