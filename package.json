@@ -1,6 +1,6 @@
 {
   "name": "salohub",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SaloHUb — 小米与海信遥控器按键、UWB 触摸与语音控制",
   "type": "module",
   "scripts": {
@@ -38,6 +38,6 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MingDa9916/Nexus-Prime-Hisense.git"
+    "url": "https://github.com/MingDa9916/SaloHub.git"
   }
 }

@@ -204,6 +204,21 @@ AI 每次按下只切换一次，长按 AI 不另外执行滑动。左上角提�
 
 左上角弹窗个性化设置位于右侧映射列表下方、快捷操作上方，提供统一开关、背景透明度、背景颜色、文字颜色、预览和恢复默认。默认开启、背景透明度 50%、深色背景与白字；旧配置缺少字段时使用相同默认。背景透明度为 0%–100%，文字独立合成以保持清晰，也支持纯黑字与完全透明背景。关闭会立刻隐藏当前提示，关闭期间的事件不会在重新开启后重放。
 
+## 1.0.1 公开发布与外观更新
+
+用户明确要求将仓库设为公开，仓库为 `MingDa9916/SaloHub`。公开前检查所有分支与标签可达的文本记录，未发现凭据提交；设备地址与路径命中位于测试和脱敏用例，日志与采集文件保持忽略。公开版本更新接口使用 SaloHub 地址及 `SaloHUb_<版本>_x64-setup.exe`，继续校验大小与 SHA-256。
+
+图标先按用户纠正对原图做黑白反色，随后用户进一步授权按审美优化图案。最终使用内置 imagegen 保留遥控器与无线信号主题，简化细节、加粗图案、均匀留白；针对用户指出的底板露白，原生像素处理固定内部为不透明黑色、白色图案、仅外侧圆角透明。原生各尺寸由 Tauri 图标工具转换。顶部使用 macOS 风格红黄绿自定义标题栏，窗口操作调用原有关闭事件以保留关闭到托盘设置；编辑框向下拉伸对齐。
+
 透明遥控器素材使用内置 imagegen 编辑原照片并清理边缘，保存为 `src/assets/hisense-remote-cutout.png`；界面使用 CSS drop-shadow 添加阴影，保留原照片供追溯。最终清理提示词：
 
 > Background-extraction cleanup edit only. The image is already a transparent cutout of a silver Hisense remote. Remove the small isolated white/gray background scraps and edge fringe along the outside left and right of the remote, to produce one clean continuous silhouette with true transparent alpha all around. Preserve EXACTLY all remote interior pixels, shape, logos and button symbols, full canvas dimensions/composition and button positions. Do not crop, resize, move the remote, redesign or add anything. No baked shadow: CSS adds it later. There should be no disconnected opaque scraps outside the product boundary and no white matte halo.
+
+最终图标源文件为 `src/assets/salohub-logo.png`。使用内置 imagegen；设计提示为：黑色圆角底板，白色粗线遥控器、上部导航圆环与圆点、下部三个按钮和两个无线信号弧线，均匀留白，适配 16/24/32 像素，无文字、阴影、纹理和高光。透明度修正后逐像素验证底板中央区域 alpha=255、标记位置外背景 RGB=0。
+
+
+最终清理所用内置 imagegen 提示词：
+
+> Precise cleanup edit of this application icon. Keep the existing white remote-control and two white radio wave symbols exactly as they are: same geometry, orientation, size, placement, white details and smooth edges. The rounded square black tile MUST be perfectly uniform opaque pure RGB #000000 everywhere except the white symbol. Remove completely the diagonal pale/white/glossy blemish in the upper-left black negative-space region; it is an unwanted highlight, NOT part of the symbol. Remove ALL other gloss, reflections, sheen, grain, checkerboard artifacts or color gradients in the black tile. Flat monochrome icon, NOT a photographed or 3D icon. White symbol should be pure white with only edge antialiasing. Rounded tile fills same canvas and outside its rounded corners only is genuinely transparent. NO translucent regions inside the black tile. No new shapes, no lighting effects, no shadow, no text, no changes to the symbol. Return a clean transparent PNG.
+
+为确保真实底板不透白，随后在原生图标转换阶段固定内部 alpha=255，并清理黑白像素中的轻微色噪；保留抗锯齿轮廓。此修正已按像素验证。

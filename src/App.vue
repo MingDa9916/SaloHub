@@ -4,6 +4,7 @@ import { RouterView, useRouter } from "vue-router";
 import { listen, emit, type UnlistenFn } from "@tauri-apps/api/event";
 import { loggedInvoke as invoke } from "./utils/appLogger";
 import SideNav from "./components/SideNav.vue";
+import WindowTitleBar from "./components/WindowTitleBar.vue";
 import UpdateDialog from "./components/UpdateDialog.vue";
 import { useUpdateStore } from "./stores/update";
 import { useI18n } from "vue-i18n";
@@ -146,6 +147,7 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container">
+    <WindowTitleBar />
     <SideNav />
     <main class="main-content">
       <RouterView />

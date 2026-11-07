@@ -10,6 +10,7 @@ import GlobalSettingsView from "./GlobalSettings.vue";
 const { invoke, confirm } = vi.hoisted(() => ({ invoke: vi.fn(), confirm: vi.fn() }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke }));
+vi.mock("../utils/appLogger", () => ({ loggedInvoke: invoke, recordAppEvent: vi.fn() }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn().mockResolvedValue("0.2.6") }));
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ setTheme: vi.fn().mockResolvedValue(undefined) }),
@@ -145,8 +146,8 @@ describe("GlobalSettings autostart tray preference", () => {
     expect(wrapper.text()).toContain("清理日志失败");
   });
 
-  it("opens this private fork's release page without an anonymous update request", async () => {
-    vi.mocked(getVersion).mockResolvedValueOnce("1.0.0");
+  it("checks public SaloHub releases for the 1.x build", async () => {
+    vi.mocked(getVersion).mockResolvedValueOnce("1.0.1");
     const wrapper = await mountSettings();
     await wrapper.findAll('[role="tab"]')[2].trigger("click");
     expect(wrapper.text()).toContain("MingDa9916");
@@ -154,8 +155,8 @@ describe("GlobalSettings autostart tray preference", () => {
     expect(wrapper.find(".support-card").exists()).toBe(false);
     expect(wrapper.find(".source-list").exists()).toBe(false);
     await wrapper.get("button.update-orbit").trigger("click"); await flushPromises();
-    expect(openUrl).toHaveBeenCalledWith("https://github.com/MingDa9916/Nexus-Prime-Hisense/releases");
-    expect(invoke.mock.calls.some(([command]) => command === "check_for_update")).toBe(false);
+    expect(openUrl).not.toHaveBeenCalled();
+    expect(invoke.mock.calls.some(([command]) => command === "check_for_update")).toBe(true);
     expect(wrapper.text()).not.toContain("检查失败");
   });
 

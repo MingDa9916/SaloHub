@@ -150,7 +150,7 @@ function toggleTheme() {
   overflow: hidden;
   border: 0;
   border-radius: 10px;
-  background: transparent;
+  background: #000;
   box-shadow: none;
 }
 

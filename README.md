@@ -2,13 +2,13 @@
 
 面向 Windows 10 / 11 的小米、海信遥控器控制工具，由 **MingDa9916** 维护。
 
-[项目仓库](https://github.com/MingDa9916/Nexus-Prime-Hisense) · [下载安装包](https://github.com/MingDa9916/Nexus-Prime-Hisense/releases) · [反馈问题](https://github.com/MingDa9916/Nexus-Prime-Hisense/issues)
+[项目仓库](https://github.com/MingDa9916/SaloHub) · [下载安装包](https://github.com/MingDa9916/SaloHub/releases) · [反馈问题](https://github.com/MingDa9916/SaloHub/issues)
 
 ## 当前版本
 
-当前版本 `1.0.0`：UWB 精简为原始触摸 / 长按移动两种模式，修复快捷键映射识别；新增默认开启的荧光笔、按键开关及颜色、粗细、时长、不透明度、发光强度和四种预设。既有触摸、防抖、慢移精度、语音和高级按键映射保留。输入法弹窗与小米统一，托盘仅保留打开面板和退出。海信只显示真实充电电源连接状态。新增命令库、完整按键库、四种运行方式的宏、按应用自动切换配置、固定配置及可绑定的配置切换。左上角按键动作与状态提示支持统一开关、背景与文字颜色、默认 50% 的背景透明度。
+当前版本 `1.0.1`：UWB 精简为原始触摸 / 长按移动两种模式，修复快捷键映射识别；新增默认开启的荧光笔、按键开关及颜色、粗细、时长、不透明度、发光强度和四种预设。既有触摸、防抖、慢移精度、语音和高级按键映射保留。输入法弹窗与小米统一，托盘仅保留打开面板和退出。海信只显示真实充电电源连接状态。新增命令库、完整按键库、四种运行方式的宏、按应用自动切换配置、固定配置及可绑定的配置切换。左上角按键动作与状态提示支持统一开关、背景与文字颜色、默认 50% 的背景透明度。
 
-仓库为私有时，需要登录有访问权限的 GitHub 账号下载安装包。应用中的“查看更新与安装包”直接打开本项目发布页，不会下载原项目的安装包。
+本项目公开发布源码与 Windows x64 安装包，无需登录即可下载。程序从 SaloHub 官方发布页和更新清单检查更新。
 
 ## 支持设备
 
@@ -52,8 +52,8 @@
 需要 Node.js 20+、Rust stable MSVC、Visual Studio C++ Build Tools 和 WebView2。
 
 ```powershell
-git clone https://github.com/MingDa9916/Nexus-Prime-Hisense.git
-cd Nexus-Prime-Hisense
+git clone https://github.com/MingDa9916/SaloHub.git
+cd SaloHub
 npm ci
 npm run tauri:dev
 ```

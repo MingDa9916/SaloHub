@@ -1,11 +1,11 @@
 [package]
 name = "nexus-prime"
-version = "1.0.0"
+version = "1.0.1"
 description = "SaloHUb - remote, application profiles and macro control"
 authors = ["MingDa9916"]
 license = "MIT"
-repository = "https://github.com/MingDa9916/Nexus-Prime-Hisense"
-homepage = "https://github.com/MingDa9916/Nexus-Prime-Hisense"
+repository = "https://github.com/MingDa9916/SaloHub"
+homepage = "https://github.com/MingDa9916/SaloHub"
 edition = "2021"
 
 [lib]

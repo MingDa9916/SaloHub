@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/heads/v2/crates/tauri-utils/schema.json",
   "productName": "SaloHUb",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "identifier": "com.lightyear.nexusprime",
   "build": {
     "frontendDist": "../dist",
@@ -20,7 +20,8 @@
         "visible": false,
         "resizable": true,
         "center": true,
-        "decorations": true
+        "decorations": false,
+        "shadow": true
       }
     ],
     "security": {
@@ -61,7 +62,7 @@
       }
     },
     "publisher": "MingDa9916",
-    "homepage": "https://github.com/MingDa9916/Nexus-Prime-Hisense",
+    "homepage": "https://github.com/MingDa9916/SaloHub",
     "copyright": "Copyright (c) 2026 MingDa9916 and Nexus Prime contributors",
     "license": "MIT",
     "licenseFile": "../LICENSE"

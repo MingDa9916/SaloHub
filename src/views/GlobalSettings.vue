@@ -70,9 +70,7 @@ onMounted(async () => {
   settingsReady.value = true;
 });
 
-const isHisenseBuild = computed(() => appVersion.value.includes("-hisense.") || Number(appVersion.value.replace(/^v/, "").split(".")[0]) >= 1);
 const updateControlState = computed(() => {
-  if (isHisenseBuild.value) return { label: "查看更新与安装包", tone: "idle", progress: 0, indeterminate: false, disabled: false };
   if (update.phase === "checking") {
     return { label: "正在检查…", tone: "checking", progress: 48, indeterminate: true, disabled: true };
   }
@@ -166,7 +164,6 @@ function setLanguage(event: Event) {
 }
 
 async function handleUpdateControl() {
-  if (isHisenseBuild.value) { await openExternal("https://github.com/MingDa9916/Nexus-Prime-Hisense/releases"); return; }
   if (update.phase === "installing") return;
   if (update.canOpen) {
     update.openDialog();
@@ -426,11 +423,11 @@ async function openExternal(url: string) {
                 <button
                   class="credit-link author-project-link"
                   type="button"
-                  aria-label="打开 SaloHUb GitHub 项目：MingDa9916/Nexus-Prime-Hisense"
-                  @click="openExternal('https://github.com/MingDa9916/Nexus-Prime-Hisense')"
+                  aria-label="打开 SaloHUb GitHub 项目：MingDa9916/SaloHub"
+                  @click="openExternal('https://github.com/MingDa9916/SaloHub')"
                 >
                   <span>GitHub：</span>
-                  <small>MingDa9916/Nexus-Prime-Hisense</small>
+                  <small>MingDa9916/SaloHub</small>
                 </button>
                 <div class="update-control">
                   <button
@@ -449,8 +446,8 @@ async function openExternal(url: string) {
                     <span class="update-orbit-track" aria-hidden="true"><i :class="{ indeterminate: updateControlState.indeterminate }" :style="{ width: `${updateControlState.progress}%` }"></i></span>
                     <span class="update-orbit-label">{{ updateControlState.label }}</span>
                   </button>
-                  <p v-if="isHisenseBuild" class="release-note">版本与安装包由本项目发布。私有仓库需在浏览器登录 GitHub 后下载。</p>
-                  <p v-if="!isHisenseBuild && update.checkError" class="update-check-error" role="status">{{ update.checkError }}</p>
+                  <p class="release-note">源码与安装包在 SaloHub 公开发布，可直接下载。</p>
+                  <p v-if="update.checkError" class="update-check-error" role="status">{{ update.checkError }}</p>
                 </div>
               </article>
             </section>

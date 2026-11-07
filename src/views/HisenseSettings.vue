@@ -664,10 +664,10 @@ h3 { font-size: 15px; margin: 0; }
 .battery-shell { display: inline-block; width: 22px; height: 11px; border: 1.5px solid currentColor; border-radius: 3px; color: var(--text-secondary); padding: 1px; box-sizing: border-box; }
 .battery-shell i { display: block; height: 100%; background: currentColor; border-radius: 1px; }
 .battery-shell.is-green { color: var(--success); }.battery-shell.is-yellow { color: var(--warning); }.battery-shell.is-red { color: var(--danger); }
-.remote-panel .mapping-editor { margin: 18px 0 0; padding: 14px; min-width: 0; }
+.remote-panel .mapping-editor { position: static; display: flex; flex-direction: column; flex: 1; margin: 18px 0 0; padding: 14px; min-width: 0; }
 .remote-panel .editor-heading { gap: 8px; align-items: flex-start; }
 .remote-panel .editor-label { display: block; margin: 5px 0 0; }
-.remote-panel .editor-fields { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
+.remote-panel .editor-fields { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; margin-top: auto; padding-top: 12px; }
 .remote-panel .editor-fields > select { width: 100%; min-width: 0; box-sizing: border-box; }
 .remote-panel .editor-fields .binding-value { min-width: 0; }
 .remote-panel .editor-fields .row-actions { margin-left: 0; flex-wrap: wrap; justify-content: flex-start; }

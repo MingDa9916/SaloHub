@@ -17,14 +17,13 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager, State};
 
-const LATEST_RELEASE_URL: &str =
-    "https://api.github.com/repos/MingDa9916/Nexus-Prime-Hisense/releases/latest";
+const LATEST_RELEASE_URL: &str = "https://api.github.com/repos/MingDa9916/SaloHub/releases/latest";
 const RELEASE_MANIFEST_URL: &str =
-    "https://github.com/MingDa9916/Nexus-Prime-Hisense/releases/latest/download/latest.json";
+    "https://github.com/MingDa9916/SaloHub/releases/latest/download/latest.json";
 const REPOSITORY_MANIFEST_URL: &str =
-    "https://raw.githubusercontent.com/MingDa9916/Nexus-Prime-Hisense/main/latest.json";
+    "https://raw.githubusercontent.com/MingDa9916/SaloHub/main/latest.json";
 const MAX_ASSET_SIZE: u64 = 512 * 1024 * 1024;
-const USER_AGENT: &str = "Nexus-Prime-Updater";
+const USER_AGENT: &str = "SaloHub-Updater";
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -167,8 +166,11 @@ fn parse_sha256(digest: &str) -> Result<String, String> {
 }
 
 fn expected_asset_name(version: &Version) -> String {
-    // GitHub Release uploads normalize spaces in asset filenames to dots.
-    format!("Nexus.Prime_{version}_x64-setup.exe")
+    if version.major >= 1 {
+        format!("SaloHUb_{version}_x64-setup.exe")
+    } else {
+        format!("Nexus.Prime_{version}_x64-setup.exe")
+    }
 }
 
 fn candidate_from_release(
@@ -201,9 +203,12 @@ fn candidate_from_release(
             .as_deref()
             .ok_or_else(|| "安装包缺少 SHA-256 校验信息".to_string())?,
     )?;
-    if !asset
-        .browser_download_url
-        .starts_with("https://github.com/")
+    let expected_url =
+        format!("https://github.com/MingDa9916/SaloHub/releases/download/v{latest}/{asset_name}");
+    if latest.major >= 1 && asset.browser_download_url != expected_url
+        || !asset
+            .browser_download_url
+            .starts_with("https://github.com/")
     {
         return Err("安装包下载地址不受信任".into());
     }
@@ -211,9 +216,7 @@ fn candidate_from_release(
     Ok(Some(Candidate {
         public: UpdateRelease {
             version: format!("v{latest}"),
-            title: release
-                .name
-                .unwrap_or_else(|| format!("SaloHUb v{latest}")),
+            title: release.name.unwrap_or_else(|| format!("SaloHUb v{latest}")),
             notes: release
                 .body
                 .unwrap_or_else(|| "该版本未提供更新说明。".into()),
@@ -371,16 +374,6 @@ pub async fn check_for_update(
     let current_version = app.package_info().version.to_string();
     let current = normalize_version(&current_version)
         .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Validation, error))?;
-    if current.major >= 1 || current.pre.as_str().starts_with("hisense.") {
-        // This distribution uses a private repository. Download releases through
-        // the user's browser session; never embed a GitHub credential in the app.
-        manager.state.lock().candidate = None;
-        return Ok(UpdateCheckResult {
-            current_version: format!("v{current}"),
-            update: None,
-            source: "private-repository-manual".into(),
-        });
-    }
     let fetched = tokio::task::spawn_blocking(fetch_latest_release)
         .await
         .map_err(|error| {
@@ -595,13 +588,43 @@ mod tests {
                 name: "Nexus.Prime_0.0.7_x64-setup.exe".into(),
                 size: 42,
                 digest: Some(format!("sha256:{}", "a".repeat(64))),
-                browser_download_url: "https://github.com/MingDa9916/Nexus-Prime-Hisense/releases/download/v0.0.7/Nexus%20Prime_0.0.7_x64-setup.exe".into(),
+                browser_download_url: "https://github.com/MingDa9916/SaloHub/releases/download/v0.0.7/Nexus%20Prime_0.0.7_x64-setup.exe".into(),
             }],
         };
         let candidate = candidate_from_release(release, &Version::new(0, 0, 6))
             .unwrap()
             .unwrap();
         assert_eq!(candidate.public.version, "v0.0.7");
+    }
+    #[test]
+    fn public_salohub_releases_use_the_new_asset_name_and_repository() {
+        let release = |url: &str| GithubRelease {
+            tag_name: "v1.0.1".into(),
+            name: None,
+            body: None,
+            published_at: None,
+            draft: false,
+            prerelease: false,
+            assets: vec![GithubAsset {
+                name: "SaloHUb_1.0.1_x64-setup.exe".into(),
+                size: 42,
+                digest: Some(format!("sha256:{}", "a".repeat(64))),
+                browser_download_url: url.into(),
+            }],
+        };
+        let url = "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.1/SaloHUb_1.0.1_x64-setup.exe";
+        assert_eq!(
+            candidate_from_release(release(url), &Version::new(1, 0, 0))
+                .unwrap()
+                .unwrap()
+                .public
+                .asset_name,
+            "SaloHUb_1.0.1_x64-setup.exe"
+        );
+        assert!(candidate_from_release(release("https://github.com/other/repo/releases/download/v1.0.1/SaloHUb_1.0.1_x64-setup.exe"), &Version::new(1,0,0)).is_err());
+        assert!(candidate_from_release(release(url), &Version::new(1, 0, 1))
+            .unwrap()
+            .is_none());
     }
 
     #[test]
