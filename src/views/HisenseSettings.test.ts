@@ -44,6 +44,31 @@ async function open() {
   await flushPromises(); return wrapper;
 }
 describe("Hisense independent mapping", () => {
+  it("places notice settings above quick actions and persists appearance with 50% defaults", async () => {
+    const view = await open();
+    const section = view.get('.mapping-list-panel .notice-settings').element;
+    const quick = view.get('.mapping-list-panel .quick-section').element;
+    expect(section.compareDocumentPosition(quick) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect((view.get('[aria-label="弹窗透明度"]').element as HTMLInputElement).value).toBe("50");
+    await view.get('[aria-label="弹窗透明度"]').setValue("80");
+    await view.get('[aria-label="弹窗背景颜色"]').setValue("#00ff00");
+    await view.get('[aria-label="弹窗文字颜色"]').setValue("#000000");
+    await view.get('[aria-label="开启左上角弹窗"]').setValue(false);
+    await vi.advanceTimersByTimeAsync(351); await flushPromises();
+    expect(stored.notice_enabled).toBe(false);
+    expect(stored.notice_transparency_percent).toBe(80);
+    expect(stored.notice_background_color).toBe("#00ff00");
+    expect(stored.notice_text_color).toBe("#000000");
+    expect((view.get('.notice-controls').element as HTMLFieldSetElement).disabled).toBe(true);
+    await view.findAll('.notice-settings button').find(b => b.text() === "恢复弹窗默认")!.trigger("click");
+    await vi.advanceTimersByTimeAsync(351); await flushPromises();
+    expect(stored.notice_enabled).toBe(true);
+    expect(stored.notice_transparency_percent).toBe(50);
+    expect(stored.notice_background_color).toBe("#171f2b");
+    expect(stored.notice_text_color).toBe("#ffffff");
+    expect(stored.indicator_color).toBe("#ffffff");
+    expect(stored.button_bindings.ok).toEqual({ type: "None" });
+  });
   it("groups six controls and puts shortcuts inside the key dialog", async () => {
     const view = await open();
     expect(view.findAll('.assignment-controls button').map(b => b.text())).toEqual(["命令", "按键", "宏", "清除", "恢复", "学习"]);

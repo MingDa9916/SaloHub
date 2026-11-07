@@ -218,6 +218,7 @@ impl Runtime {
         let indicator = indicator::Indicator::new();
         let mut last_revision = self.revision.load(Ordering::Acquire);
         let mut cached_cfg = self.config.read().clone();
+        indicator.set_notice_style(cached_cfg.notice_style());
         let mut refresh_config = Instant::now();
         let mut active_profile = String::new();
         let mut last_process = String::new();
@@ -267,6 +268,7 @@ impl Runtime {
                 let revision = self.revision.load(Ordering::Acquire);
                 if now >= refresh_config || revision != last_revision {
                     let base = self.config.read().clone();
+                    indicator.set_notice_style(base.notice_style());
                     let process = crate::logging::foreground_process_name().unwrap_or_default();
                     let profile = base.profile_for(&process);
                     if profile != active_profile || process != last_process {
@@ -307,6 +309,7 @@ impl Runtime {
                 }
                 output.gesture_threshold(cfg.pointer_hold_ms);
                 indicator.set_style(cfg.indicator_style());
+                indicator.set_notice_style(cfg.notice_style());
                 let capturing = macro_capture::active() || app
                     .try_state::<crate::bridges::shared::shortcut_capture::ShortcutCaptureSession>()
                     .is_some_and(|s| s.is_active());

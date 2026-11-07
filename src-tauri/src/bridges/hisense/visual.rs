@@ -32,6 +32,38 @@ impl Rgb {
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NoticeStyle {
+    pub enabled: bool,
+    pub transparency_percent: u32,
+    pub background: Rgb,
+    pub text: Rgb,
+}
+impl Default for NoticeStyle {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            transparency_percent: 50,
+            background: Rgb(23, 31, 43),
+            text: Rgb(255, 255, 255),
+        }
+    }
+}
+impl NoticeStyle {
+    // The text mask stays opaque even when the card background is transparent.
+    pub fn pixel(self, edge: f32, ink: f32) -> u32 {
+        let ink = ink.clamp(0., 1.);
+        let background = edge.clamp(0., 1.)
+            * (1. - self.transparency_percent.min(100) as f32 / 100.)
+            * (1. - ink);
+        let channel =
+            |text: u8, bg: u8| (text as f32 * ink + bg as f32 * background).round() as u32;
+        (((ink + background) * 255.).round() as u32) << 24
+            | channel(self.text.0, self.background.0) << 16
+            | channel(self.text.1, self.background.1) << 8
+            | channel(self.text.2, self.background.2)
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TrailOptions {
     pub width_px: u32,
     pub duration_ms: u64,
@@ -206,6 +238,20 @@ impl Trail {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn notice_background_transparency_keeps_text_visible_including_black() {
+        let mut style = NoticeStyle::default();
+        assert_eq!(style.pixel(1., 0.) >> 24, 128);
+        assert_eq!(style.pixel(1., 1.), 0xffffffff);
+        assert_eq!(style.pixel(0., 0.), 0);
+        style.transparency_percent = 100;
+        style.text = Rgb(0, 0, 0);
+        assert_eq!(style.pixel(1., 0.), 0);
+        assert_eq!(style.pixel(1., 1.), 0xff000000);
+        style.transparency_percent = 0;
+        style.background = Rgb(255, 0, 0);
+        assert_eq!(style.pixel(1., 0.), 0xffff0000);
+    }
     #[test]
     fn color_validation_and_alpha_are_exact() {
         assert_eq!(Rgb::parse("#12aBef"), Some(Rgb(18, 171, 239)));

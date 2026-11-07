@@ -14,6 +14,8 @@ export interface HisenseConfig {
   adaptive_sensitivity: boolean; precision_ratio: number;
   touch_indicator_enabled: boolean;
   indicator_color: string; indicator_pressed_color: string; highlight_trail_enabled: boolean; highlight_trail_color: string;
+  notice_enabled?: boolean; notice_transparency_percent?: number;
+  notice_background_color?: string; notice_text_color?: string;
   highlight_trail_width_px: number; highlight_trail_duration_ms: number;
   highlight_trail_opacity_percent: number; highlight_trail_glow_percent: number;
   pointer_hold_ms: number; pointer_gesture_revision?: number;

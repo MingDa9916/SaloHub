@@ -2,7 +2,7 @@
 //! The reader publishes only its latest state: old positions are never queued.
 use super::{
     gesture::Mode,
-    visual::{Snapshot, Style, Trail, TRAIL_SIDE},
+    visual::{NoticeStyle, Snapshot, Style, Trail, TRAIL_SIDE},
 };
 use parking_lot::Mutex;
 use std::{
@@ -80,6 +80,7 @@ struct Frame {
     updated: Instant,
     notice: Option<(Instant, Notice)>,
     style: Style,
+    notice_style: NoticeStyle,
 }
 impl Default for Frame {
     fn default() -> Self {
@@ -90,6 +91,7 @@ impl Default for Frame {
             updated: Instant::now(),
             notice: None,
             style: Style::default(),
+            notice_style: NoticeStyle::default(),
         }
     }
 }
@@ -132,6 +134,7 @@ impl Indicator {
         let wake = visible || frame.visible != visible;
         let notice = frame.notice.clone();
         let style = frame.style;
+        let notice_style = frame.notice_style;
         *frame = Frame {
             position,
             visible,
@@ -139,6 +142,7 @@ impl Indicator {
             updated: Instant::now(),
             notice,
             style,
+            notice_style,
         };
         drop(frame);
         if let Some(worker) = &self.worker {
@@ -160,8 +164,26 @@ impl Indicator {
     pub fn take_error(&self) -> Option<String> {
         self.error.lock().take()
     }
+    pub fn set_notice_style(&self, style: NoticeStyle) {
+        let mut frame = self.frame.lock();
+        if frame.notice_style != style {
+            frame.notice_style = style;
+            if !style.enabled {
+                frame.notice = None;
+            }
+            drop(frame);
+            if let Some(worker) = &self.worker {
+                worker.thread().unpark();
+            }
+        }
+    }
     pub fn notice(&self, mode: Notice) {
-        self.frame.lock().notice = Some((Instant::now(), mode));
+        let mut frame = self.frame.lock();
+        if !frame.notice_style.enabled {
+            return;
+        }
+        frame.notice = Some((Instant::now(), mode));
+        drop(frame);
         if let Some(worker) = &self.worker {
             worker.thread().unpark();
         }
@@ -406,28 +428,16 @@ impl Layer {
         }
         self.present_region(snapshot.origin, snapshot.size, 255)
     }
-    fn paint_notice(&self, mode: Notice) -> Result<(), String> {
-        {
-            let pixels = unsafe {
-                std::slice::from_raw_parts_mut(self.pixels, (self.width * self.height) as usize)
-            };
-            let (half_w, half_h) = (self.width as f32 / 2., self.height as f32 / 2.);
-            for y in 0..self.height {
-                for x in 0..self.width {
-                    let qx = (x as f32 + 0.5 - half_w).abs() - (half_w - 12.);
-                    let qy = (y as f32 + 0.5 - half_h).abs() - (half_h - 12.);
-                    let distance = qx.max(0.).hypot(qy.max(0.)) + qx.max(qy).min(0.) - 12.;
-                    let a = (0.5 - distance).clamp(0., 1.);
-                    pixels[(y * self.width + x) as usize] = ((255. * a).round() as u32) << 24
-                        | ((23. * a).round() as u32) << 16
-                        | ((31. * a).round() as u32) << 8
-                        | (43. * a).round() as u32;
-                }
-            }
+    fn paint_notice(&self, mode: Notice, style: NoticeStyle) -> Result<(), String> {
+        // Render white glyphs on an empty mask, then composite chosen colors.
+        // This also supports opaque black text on a fully transparent card.
+        unsafe {
+            std::slice::from_raw_parts_mut(self.pixels, (self.width * self.height) as usize)
+                .fill(0);
         }
         let mut lines = Vec::new();
         if let Some(caption) = mode.caption() {
-            lines.push((caption, 14, 400, 7, 30, COLORREF(0x00d5c4b5)));
+            lines.push((caption, 14, 400, 7, 30, COLORREF(0x00ffffff)));
             lines.push((
                 mode.title(),
                 20,
@@ -483,13 +493,19 @@ impl Layer {
                 }
             }
         }
-        // GDI text clears alpha in glyph pixels; the card's text region is opaque.
         let pixels = unsafe {
             std::slice::from_raw_parts_mut(self.pixels, (self.width * self.height) as usize)
         };
-        for pixel in pixels {
-            if *pixel >> 24 == 0 && *pixel & 0x00ffffff != 0 {
-                *pixel |= 0xff000000;
+        let (half_w, half_h) = (self.width as f32 / 2., self.height as f32 / 2.);
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let qx = (x as f32 + 0.5 - half_w).abs() - (half_w - 12.);
+                let qy = (y as f32 + 0.5 - half_h).abs() - (half_h - 12.);
+                let distance = qx.max(0.).hypot(qy.max(0.)) + qx.max(qy).min(0.) - 12.;
+                let edge = (0.5 - distance).clamp(0., 1.);
+                let pixel = &mut pixels[(y * self.width + x) as usize];
+                let ink = (*pixel & 255) as f32 / 255.;
+                *pixel = style.pixel(edge, ink);
             }
         }
         Ok(())
@@ -541,6 +557,7 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
     let layer = Layer::new()?;
     let toast = Layer::new_size(360, 78)?;
     let mut last_notice: Option<Instant> = None;
+    let mut last_notice_style = NoticeStyle::default();
     let mut toast_visible = false;
     let mut visible = false;
     let mut last_pressed = false;
@@ -561,12 +578,13 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
             }
         }
         let f = frame.lock().clone();
-        if let Some((started, enabled)) = f.notice {
+        if let Some((started, enabled)) = f.notice.filter(|_| f.notice_style.enabled) {
             let age = started.elapsed().as_secs_f32();
             if age < 2.0 {
-                if last_notice != Some(started) {
-                    toast.paint_notice(enabled)?;
+                if last_notice != Some(started) || last_notice_style != f.notice_style {
+                    toast.paint_notice(enabled, f.notice_style)?;
                     last_notice = Some(started);
+                    last_notice_style = f.notice_style;
                 }
                 let monitor =
                     unsafe { MonitorFromPoint(POINT::default(), MONITOR_DEFAULTTOPRIMARY) };
@@ -594,6 +612,9 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
                 toast.hide();
                 toast_visible = false;
             }
+        } else if toast_visible {
+            toast.hide();
+            toast_visible = false;
         }
         let show = f.visible && f.updated.elapsed() < Duration::from_millis(750);
         if previous_style != f.style {
@@ -678,6 +699,25 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn disabling_notices_clears_current_and_drops_hidden_events() {
+        let indicator = Indicator {
+            frame: Arc::new(Mutex::new(Frame::default())),
+            stop: Arc::new(AtomicBool::new(false)),
+            worker: None,
+            error: Arc::new(Mutex::new(None)),
+        };
+        indicator.notice(Notice::Mode(Mode::Touch));
+        assert!(indicator.frame.lock().notice.is_some());
+        indicator.set_notice_style(NoticeStyle {
+            enabled: false,
+            ..Default::default()
+        });
+        assert!(indicator.frame.lock().notice.is_none());
+        indicator.notice(Notice::Trail(true));
+        indicator.set_notice_style(NoticeStyle::default());
+        assert!(indicator.frame.lock().notice.is_none());
+    }
     #[test]
     fn action_notice_preserves_switch_results_and_replaces_old_actions() {
         let action = Notice::action(

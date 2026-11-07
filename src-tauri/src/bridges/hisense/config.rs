@@ -97,6 +97,10 @@ pub struct HisenseConfig {
     pub touch_indicator_enabled: bool,
     pub indicator_color: String,
     pub indicator_pressed_color: String,
+    pub notice_enabled: bool,
+    pub notice_transparency_percent: u32,
+    pub notice_background_color: String,
+    pub notice_text_color: String,
     pub highlight_trail_enabled: bool,
     pub highlight_trail_color: String,
     pub highlight_trail_width_px: u32,
@@ -165,6 +169,10 @@ impl Default for HisenseConfig {
             touch_indicator_enabled: true,
             indicator_color: "#ffffff".into(),
             indicator_pressed_color: "#3b82f6".into(),
+            notice_enabled: true,
+            notice_transparency_percent: 50,
+            notice_background_color: "#171f2b".into(),
+            notice_text_color: "#ffffff".into(),
             highlight_trail_enabled: true,
             highlight_trail_color: "#22d3ee".into(),
             highlight_trail_width_px: 6,
@@ -273,6 +281,16 @@ impl HisenseConfig {
                 .unwrap_or(super::visual::Style::default().trail_color),
         }
     }
+    pub fn notice_style(&self) -> super::visual::NoticeStyle {
+        let defaults = super::visual::NoticeStyle::default();
+        super::visual::NoticeStyle {
+            enabled: self.notice_enabled,
+            transparency_percent: self.notice_transparency_percent.min(100),
+            background: super::visual::Rgb::parse(&self.notice_background_color)
+                .unwrap_or(defaults.background),
+            text: super::visual::Rgb::parse(&self.notice_text_color).unwrap_or(defaults.text),
+        }
+    }
     pub fn realtime(&self, action: &Action) -> bool {
         action.realtime()
             || matches!(action, Action::Macro(id) if self.macros.get(id).is_some_and(|m|m.realtime()))
@@ -327,6 +345,12 @@ impl HisenseConfig {
         self.validate_internal(true)
     }
     fn validate_internal(&self, check_profiles: bool) -> Result<(), String> {
+        if self.notice_transparency_percent > 100
+            || super::visual::Rgb::parse(&self.notice_background_color).is_none()
+            || super::visual::Rgb::parse(&self.notice_text_color).is_none()
+        {
+            return Err("弹窗透明度需为 0%–100%，颜色需为 #RRGGBB 格式".into());
+        }
         if self.macros.len() > 64 || self.profiles.len() > 64 {
             return Err("宏和应用配置分别最多 64 个".into());
         }
@@ -575,6 +599,33 @@ impl MappingsFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn legacy_notice_defaults_are_half_transparent_and_settings_validate() {
+        let mut value = serde_json::to_value(HisenseConfig::default()).unwrap();
+        for key in [
+            "notice_enabled",
+            "notice_transparency_percent",
+            "notice_background_color",
+            "notice_text_color",
+        ] {
+            value.as_object_mut().unwrap().remove(key);
+        }
+        let mut cfg: HisenseConfig = serde_json::from_value(value).unwrap();
+        assert!(cfg.notice_enabled);
+        assert_eq!(cfg.notice_transparency_percent, 50);
+        cfg.notice_background_color = "#00ff00".into();
+        cfg.notice_text_color = "#000000".into();
+        cfg.notice_enabled = false;
+        cfg.validate().unwrap();
+        let loaded: HisenseConfig =
+            serde_json::from_value(serde_json::to_value(&cfg).unwrap()).unwrap();
+        assert_eq!(loaded.notice_style(), cfg.notice_style());
+        cfg.notice_transparency_percent = 101;
+        assert!(cfg.validate().is_err());
+        cfg.notice_transparency_percent = 50;
+        cfg.notice_text_color = "invalid".into();
+        assert!(cfg.validate().is_err());
+    }
     #[test]
     fn reset_one_button_preserves_other_settings_and_app_overrides() {
         let mut cfg = HisenseConfig::default();
