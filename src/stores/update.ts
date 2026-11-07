@@ -50,7 +50,7 @@ function normalizeCheckFailure(cause: unknown): UpdateCheckFailure {
 }
 
 export const useUpdateStore = defineStore("update", () => {
-  const currentVersion = ref("v1.0.1");
+  const currentVersion = ref("v1.0.2");
   const release = ref<UpdateRelease | null>(null);
   const phase = ref<UpdatePhase>("idle");
   const showDialog = ref(false);

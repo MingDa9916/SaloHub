@@ -1,6 +1,6 @@
 {
   "name": "salohub",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "SaloHUb — 小米与海信遥控器按键、UWB 触摸与语音控制",
   "type": "module",
   "scripts": {

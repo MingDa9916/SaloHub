@@ -44,6 +44,21 @@ async function open() {
   await flushPromises(); return wrapper;
 }
 describe("Hisense independent mapping", () => {
+  it("applies upstream punctuation shortcuts to an app override without changing desktop keys", async () => {
+    stored.button_bindings.up = {type:"SingleKey",value:0x26};
+    stored.profiles = {chrome:{name:"Chrome",process_name:"chrome.exe",enabled:true,button_bindings:{},long_press_bindings:{},multi_click_bindings:{}}};
+    const view = await open();
+    await view.get('[aria-label="编辑应用配置"]').setValue("chrome");
+    await view.get('[data-button-id="up"]').trigger("click");
+    await view.get('.assignment-entries button:nth-child(2)').trigger("click");
+    await view.get('.key-mode-tabs button:nth-child(3)').trigger("click");
+    await view.get('[name="shortcut-text"]').setValue("Ctrl + ? + .");
+    await view.get('.shortcut-composer-actions .primary').trigger("click");
+    await vi.advanceTimersByTimeAsync(351); await flushPromises();
+    expect(stored.profiles.chrome.button_bindings.up).toEqual({type:"ComboKey",value:[0x11,0x10,0xbf,0xbe]});
+    expect(stored.button_bindings.up).toEqual({type:"SingleKey",value:0x26});
+    expect(view.get('[data-button-id="up"] .key-binding').text()).toBe("Ctrl + Shift + / + .");
+  });
   it("places notice settings above quick actions and persists appearance with 50% defaults", async () => {
     const view = await open();
     const section = view.get('.mapping-list-panel .notice-settings').element;

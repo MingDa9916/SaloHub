@@ -7,6 +7,7 @@ import { useUpdateStore } from "../stores/update";
 import { useHisenseStore } from "../stores/hisense";
 import { useI18n } from "vue-i18n";
 import type { BridgeStatus } from "../types";
+import brandIcon from "../assets/salohub-logo.png";
 import { connectedDeviceName, connectionStatusPresentation } from "../utils/connectionStatus";
 
 const route = useRoute();
@@ -49,7 +50,7 @@ function toggleTheme() {
   <header class="topnav">
     <div class="brand-block">
       <div class="brand-symbol" aria-hidden="true">
-        <img src="/favicon.png" alt="" />
+        <img :src="brandIcon" alt="" />
       </div>
       <div class="brand-copy">
         <strong>SaloHUb</strong>
@@ -152,9 +153,11 @@ function toggleTheme() {
   border-radius: 10px;
   background: #000;
   box-shadow: none;
+  outline: none;
+  isolation: isolate;
 }
 
-.brand-symbol img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.brand-symbol img { display: block; width: 100%; height: 100%; object-fit: contain; border: 0; outline: 0; box-shadow: none; background: #000; }
 
 .brand-copy {
   min-width: 0;
@@ -278,6 +281,4 @@ function toggleTheme() {
   .device-chip { max-width: 154px; margin-left: 0; }
   .main-nav button { min-width: 76px; padding: 0 12px; }
 }
-.brand-symbol { background: #fff; border-radius: 10px; }
-.brand-symbol img { width: 32px; height: 32px; object-fit: contain; }
 </style>

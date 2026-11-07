@@ -52,5 +52,10 @@ onUnmounted(() => { disposed = true; listeners.forEach(stop => stop()); });
 <style scoped>
 .window-titlebar{display:grid;grid-template-columns:100px minmax(0,1fr) 100px;align-items:center;height:36px;min-height:36px;flex-shrink:0;padding:0 12px;background:linear-gradient(180deg,#f6f6f8,#ededf0);border-bottom:1px solid #0000000c;color:#42434a;user-select:none;-webkit-user-select:none}
 .window-controls{display:flex;align-items:center;gap:2px;width:max-content}.traffic{display:grid;place-items:center;width:24px;height:28px;padding:0;border:0;background:transparent;cursor:default;border-radius:6px}.traffic>span{display:grid;place-items:center;width:12px;height:12px;box-sizing:border-box;border-radius:50%;border:1px solid #0000001a;transition:background .15s}.close>span{background:#ff5f57}.minimize>span{background:#febc2e}.maximize>span{background:#28c840}.traffic svg{width:12px;height:12px;fill:none;stroke:#000000a6;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;opacity:0}.window-controls:hover svg,.traffic:focus-visible svg{opacity:1}.traffic:focus-visible{outline:2px solid var(--primary);outline-offset:0}.traffic:active>span{filter:brightness(.88)}.window-title{text-align:center;font-size:12px;font-weight:600;letter-spacing:.15px;pointer-events:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.inactive .traffic:not(:hover)>span{background:#c9c9ce}.inactive .window-title{opacity:.6}
-:global(:root[data-theme="dark"]) .window-titlebar{background:linear-gradient(180deg,#292a2f,#222328);border-bottom-color:#ffffff09;color:#d7d7dc}:global(:root[data-theme="dark"]) .inactive .traffic:not(:hover)>span{background:#5a5b60}
+
+</style>
+
+<style>
+:root[data-theme="dark"] .window-titlebar{background:#000;border-bottom-color:#ffffff12;color:#ededf0}
+:root[data-theme="dark"] .window-titlebar.inactive .traffic:not(:hover)>span{background:#5a5b60}
 </style>

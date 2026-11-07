@@ -222,3 +222,11 @@ AI 每次按下只切换一次，长按 AI 不另外执行滑动。左上角提�
 > Precise cleanup edit of this application icon. Keep the existing white remote-control and two white radio wave symbols exactly as they are: same geometry, orientation, size, placement, white details and smooth edges. The rounded square black tile MUST be perfectly uniform opaque pure RGB #000000 everywhere except the white symbol. Remove completely the diagonal pale/white/glossy blemish in the upper-left black negative-space region; it is an unwanted highlight, NOT part of the symbol. Remove ALL other gloss, reflections, sheen, grain, checkerboard artifacts or color gradients in the black tile. Flat monochrome icon, NOT a photographed or 3D icon. White symbol should be pure white with only edge antialiasing. Rounded tile fills same canvas and outside its rounded corners only is genuinely transparent. NO translucent regions inside the black tile. No new shapes, no lighting effects, no shadow, no text, no changes to the symbol. Return a clean transparent PNG.
 
 为确保真实底板不透白，随后在原生图标转换阶段固定内部 alpha=255，并清理黑白像素中的轻微色噪；保留抗锯齿轮廓。此修正已按像素验证。
+
+## 1.0.2 上游标点同步与深色外观修复
+
+按用户要求定向同步上游提交 `38d49f017e092b392065bfbc71ec1c116a988267` 的组合编辑器、符号解析、相关测试和 Xiaomi HID 无法编码时的回退处理；保留本分支 Num Enter 标签、应用独立映射、海信动作、外观与发布设置。新增海信应用独立配置的标点组合集成测试，验证 `Ctrl + ? + .` 与桌面默认互不影响。
+
+深色标题栏原有 `:global(...)` 组合写法在编译后丢失了后续选择器，改为明确的全局后代选择器，深色背景为 `#000`。导航图标白线最终定位为文件末尾旧的白底与 32px 图片规则覆盖了 34px 容器，已删除该覆盖样式；同时从固定 `/favicon.png` 改为内容哈希资源引用并显式取消边框、轮廓与阴影。原始图标及各尺寸资源的边缘检查没有可见白色像素。左侧编辑卡片改为分区均匀分布，保留底部对齐。
+
+128 项前端测试、10 项桥接脚本测试和 3 项 Xiaomi 原生编码测试通过。原生 1.0.2 预览中确认深色标题栏纯黑、导航图标白边消失，用户回复本轮效果正常。

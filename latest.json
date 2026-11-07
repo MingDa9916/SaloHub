@@ -1,16 +1,16 @@
 {
-  "tag_name": "v1.0.1",
-  "name": "SaloHUb 1.0.1",
-  "body": "# SaloHUb 1.0.1\n\n- 仓库更名为 MingDa9916/SaloHub 并公开，源码与安装包无需登录即可下载。\n- 按用户追加的外观要求优化应用图标：保留遥控器与无线信号主题，简化细节、加粗白色图案、均匀留白，采用纯黑不透明圆角底板；同步界面、窗口、任务栏、托盘及安装器图标。\n- 顶部改为 macOS 风格自定义标题栏：左侧红黄绿窗口按钮、居中标题、深浅色主题；保留拖动、双击最大化、最小化与关闭到托盘行为。\n- 左侧按键编辑框向下拉伸，与右侧快捷操作底部对齐。\n- 仓库与更新链接统一为 SaloHub；公开版本恢复应用内更新检查，安装包按 SHA-256 校验，保留原应用标识和个人配置。\n\n本次保留 1.0.0 全部遥控、语音、触摸、防抖、荧光笔、宏与应用配置功能。安装过程及安装后的真实设备回归由用户手动验收。\n\n验证：120 项前端测试、10 项桥接脚本测试、6 项更新逻辑测试及 Rust 全目标检查通过，调试程序构建通过。用户已确认标题栏、窗口操作和拉伸对齐正常；最终图标检查了不透明黑底、圆角与各尺寸。Windows x64 安装包构建通过，安装后的完整回归仍由用户手动验收。\n",
+  "tag_name": "v1.0.2",
+  "name": "SaloHUb 1.0.2",
+  "body": "# SaloHUb 1.0.2\n\n- 同步上游 Nexus Prime 的标点与多键组合改进，来源提交 [38d49f0](https://github.com/LightyearXizIl/Nexus-Prime/commit/38d49f017e092b392065bfbc71ec1c116a988267)：符号分组、标点单键、Shift 标点、附加键增删、重复按键检查、快捷键文字转下拉继续编辑。\n- 小米和海信共用新版组合编辑器，保留海信数字小键盘 Enter、应用独立映射和既有自定义功能。\n- 同步 Xiaomi WinUHid 对无法编码的标点组合的回退处理，避免将这类组合误判为设备故障。\n- 修复 macOS 风格标题栏的深色选择器，深色主题采用纯黑背景，并保留窗口按钮与关闭到托盘行为。\n- 删除导航图标旧的白底容器与缩小图片覆盖样式，修复四周白线；改用内容哈希资源并清除边框、轮廓与阴影。\n- 左侧按键编辑框内各功能区均匀分布，保留与右侧底部对齐。\n\n安装后的真实遥控器标点输入及完整回归由用户手动验收。\n\n验证：128 项前端测试、10 项桥接脚本测试、3 项 Xiaomi 原生按键编码测试、Rust 全目标检查及调试构建通过。实际窗口确认深色标题栏与图标无白边，用户确认本轮效果正常。Windows x64 NSIS 安装包已构建。\n",
   "published_at": null,
   "draft": false,
   "prerelease": false,
   "assets": [
     {
-      "name": "SaloHUb_1.0.1_x64-setup.exe",
-      "size": 15057787,
-      "digest": "sha256:7a92dfbce1e307f840911f4e347950e8cfd216672c6b46b9cc4e67ae4012caf3",
-      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.1/SaloHUb_1.0.1_x64-setup.exe"
+      "name": "SaloHUb_1.0.2_x64-setup.exe",
+      "size": 15046921,
+      "digest": "sha256:9be4fae369477bbd0ec02dafb701377a4fe4af0ff00ba129a57320c6bfbda6c3",
+      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.2/SaloHUb_1.0.2_x64-setup.exe"
     }
   ]
 }

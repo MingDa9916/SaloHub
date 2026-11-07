@@ -1,6 +1,6 @@
 [package]
 name = "nexus-prime"
-version = "1.0.1"
+version = "1.0.2"
 description = "SaloHUb - remote, application profiles and macro control"
 authors = ["MingDa9916"]
 license = "MIT"

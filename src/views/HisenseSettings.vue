@@ -664,14 +664,15 @@ h3 { font-size: 15px; margin: 0; }
 .battery-shell { display: inline-block; width: 22px; height: 11px; border: 1.5px solid currentColor; border-radius: 3px; color: var(--text-secondary); padding: 1px; box-sizing: border-box; }
 .battery-shell i { display: block; height: 100%; background: currentColor; border-radius: 1px; }
 .battery-shell.is-green { color: var(--success); }.battery-shell.is-yellow { color: var(--warning); }.battery-shell.is-red { color: var(--danger); }
-.remote-panel .mapping-editor { position: static; display: flex; flex-direction: column; flex: 1; margin: 18px 0 0; padding: 14px; min-width: 0; }
+.remote-panel .mapping-editor { position: static; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; flex: 1; margin: 18px 0 0; padding: 14px; min-width: 0; }
 .remote-panel .editor-heading { gap: 8px; align-items: flex-start; }
 .remote-panel .editor-label { display: block; margin: 5px 0 0; }
-.remote-panel .editor-fields { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; margin-top: auto; padding-top: 12px; }
+.remote-panel .editor-fields { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; margin-top: 0; padding-top: 0; }
 .remote-panel .editor-fields > select { width: 100%; min-width: 0; box-sizing: border-box; }
 .remote-panel .editor-fields .binding-value { min-width: 0; }
 .remote-panel .editor-fields .row-actions { margin-left: 0; flex-wrap: wrap; justify-content: flex-start; }
-.remote-panel .trigger-picker { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); }
+.remote-panel .trigger-note { margin: 0; }
+.remote-panel .trigger-picker { margin: 0; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); }
 .remote-panel .trigger-picker button { grid-column: span 2; justify-content: center; padding: 7px 5px; }
 .remote-panel .trigger-picker button:nth-child(n+4) { grid-column: span 3; }
 .remote-panel .mouse-options { flex-direction: column; align-items: stretch; }
