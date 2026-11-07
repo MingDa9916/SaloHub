@@ -550,7 +550,7 @@ h3 { font-size: 15px; margin: 0; }
 .learning-hint { font-size: 10px; margin-bottom: 0; }
 .empty-state { padding: 20px; font-size: 12px; color: var(--text-secondary); text-align: center; }
 .mapping-list-panel .quick-section { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border); }.quick-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 20px; }
-.quick-grid button { padding: 16px; background: var(--card-bg); text-align: left; white-space: normal; }
+.quick-grid button { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; padding: 16px; background: var(--card-bg); text-align: left; white-space: normal; }
 .quick-grid strong { display: block; margin-bottom: 10px; font-size: 12px; }
 .quick-grid small { color: var(--text-secondary); font-size: 10px; line-height: 1.6; }
 .overview { scroll-margin-top: 20px; }
@@ -558,7 +558,7 @@ h3 { font-size: 15px; margin: 0; }
 @media (max-width: 1150px) {
  .mapping-layout { grid-template-columns: 290px minmax(0,1fr); }
  .mapping-list-panel { padding: 15px; }
- .remote-panel { align-self: start; }
+ .remote-panel { align-self: stretch; }
 }
 @media (max-width: 950px) {
  .mapping-grid { grid-template-columns: 1fr; }
