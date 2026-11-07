@@ -21,9 +21,19 @@ beforeEach(() => {
     voice_mode: "Hold", microphone_name: null, microphone_gain_db: 0,
   };
   openFile.mockReset(); saveFile.mockReset(); unlisten.mockReset(); listen.mockReset().mockResolvedValue(unlisten);
-  invoke.mockReset().mockImplementation(async (command: string, args?: { config: HisenseConfig }) => {
+  invoke.mockReset().mockImplementation(async (command: string, args?: { config?: HisenseConfig; profile?: string; button?: string }) => {
     if (command === "hisense_config") return structuredClone(stored);
-    if (command === "hisense_save_config") { stored = structuredClone(args!.config); return; }
+    if (command === "hisense_save_config") { stored = structuredClone(args!.config!); return; }
+    if (command === "hisense_reset_mappings") {
+      const next = structuredClone(stored), button = args?.button;
+      const scope = args?.profile && args.profile !== "default" ? next.profiles![args.profile] : next;
+      if (button) {
+        if (scope === next) scope.button_bindings[button] = { type: "SingleKey", value: 0x26 };
+        else delete scope.button_bindings[button];
+        delete scope.long_press_bindings?.[button]; delete scope.multi_click_bindings?.[button];
+      }
+      stored = next; return structuredClone(next);
+    }
     if (command === "get_audio_devices") return [];
     if (command === "hisense_status") return { running: true, connected: true, observed_buttons: [], learning_button: null, voice_active: false, voice_level: 0 };
   });
@@ -34,6 +44,42 @@ async function open() {
   await flushPromises(); return wrapper;
 }
 describe("Hisense independent mapping", () => {
+  it("groups six controls and puts shortcuts inside the key dialog", async () => {
+    const view = await open();
+    expect(view.findAll('.assignment-controls button').map(b => b.text())).toEqual(["命令", "按键", "宏", "清除", "恢复", "学习"]);
+    expect(view.find('.mapping-list-panel .quick-section').exists()).toBe(true);
+    await view.get('.assignment-entries button:nth-child(2)').trigger("click");
+    await view.get('.key-mode-tabs button:nth-child(3)').trigger("click");
+    await view.get('[name="shortcut-text"]').setValue("Alt+F4");
+    await view.get('.shortcut-composer-actions .primary').trigger("click");
+    await vi.advanceTimersByTimeAsync(351); await flushPromises();
+    expect(stored.button_bindings.ok).toEqual({ type: "ComboKey", value: [0x12, 0x73] });
+    expect(view.find('.assignment-dialog').exists()).toBe(false);
+  });
+  it("cancels shortcut capture on dialog close without assigning a key", async () => {
+    const original = invoke.getMockImplementation()!;
+    invoke.mockImplementation((command, args) => command === "capture_shortcut_start" ? Promise.resolve(17) : command === "capture_shortcut_poll" ? Promise.resolve(null) : original(command, args));
+    const view = await open();
+    await view.get('.assignment-entries button:nth-child(2)').trigger("click");
+    await view.get('.key-mode-tabs button:nth-child(2)').trigger("click");
+    await view.get('.shortcut-capture-panel .primary').trigger("click"); await flushPromises();
+    await view.get('[aria-label="关闭功能库"]').trigger("click"); await flushPromises();
+    expect(invoke).toHaveBeenCalledWith("capture_shortcut_stop", { sessionId: 17 });
+    expect(stored.button_bindings.ok).toEqual({ type: "None" });
+  });
+  it("restores only the selected key and refreshes all mapping displays", async () => {
+    stored.button_bindings.up = { type: "SingleKey", value: 0x21 };
+    stored.button_bindings.down = { type: "SingleKey", value: 65 };
+    stored.long_press_bindings = { up: { type: "SingleKey", value: 66 } };
+    const view = await open();
+    await view.get('[data-button-id="up"]').trigger("click");
+    await view.get('.restore-button').trigger("click"); await flushPromises();
+    expect(invoke).toHaveBeenCalledWith("hisense_reset_mappings", { profile: "default", button: "up" });
+    expect(stored.button_bindings.down).toEqual({ type: "SingleKey", value: 65 });
+    expect(stored.long_press_bindings.up).toBeUndefined();
+    expect(view.get('.mapping-editor .binding-value').text()).toBe("上方向键");
+    expect(view.get('[data-button-id="up"] .key-binding').text()).toBe("上方向键");
+  });
   it("keeps the editor, preview and list in sync when an inherited app key gets its first override", async () => {
     stored.button_bindings.up = { type: "SingleKey", value: 0x26 };
     stored.profiles = { browser: { name: "Chrome", process_name: "chrome.exe", enabled: true, button_bindings: {}, long_press_bindings: {}, multi_click_bindings: {} } };
@@ -51,7 +97,7 @@ describe("Hisense independent mapping", () => {
     await vi.advanceTimersByTimeAsync(351); await flushPromises();
     expect(stored.profiles.browser.button_bindings.up).toEqual({ type: "SingleKey", value: 0x21 });
     expect(stored.button_bindings.up).toEqual({ type: "SingleKey", value: 0x26 });
-    await view.get('.editing-scope button').trigger("click");
+    await view.get('.restore-button').trigger("click");
     expect(view.get('.mapping-editor .binding-value').text()).toBe("上方向键");
     expect(view.get('[data-button-id="up"] .key-binding').text()).toBe("上方向键");
     expect(view.get('.preview-caption small').text()).toBe("上方向键");
@@ -105,7 +151,7 @@ describe("Hisense independent mapping", () => {
     const view=await open();await view.get('[aria-label="编辑应用配置"]').setValue('browser');await view.get('[data-button-id="menu"]').trigger('click');
     await view.get('.mapping-editor .action-select').setValue('ToggleHighlighter');await vi.advanceTimersByTimeAsync(351);await flushPromises();
     expect(stored.button_bindings.menu).toEqual({type:'SingleKey',value:65});expect(stored.profiles!.browser.button_bindings.menu).toEqual({type:'ToggleHighlighter'});
-    await view.get('.editing-scope button').trigger('click');await vi.advanceTimersByTimeAsync(351);await flushPromises();
+    await view.get('.restore-button').trigger('click');await vi.advanceTimersByTimeAsync(351);await flushPromises();
     expect(stored.profiles!.browser.button_bindings.menu).toBeUndefined();expect(view.get('.mapping-editor').text()).toContain('A');
   });
   it("manages profile switching and applies native selections without saving them back",async()=>{
@@ -276,9 +322,10 @@ describe("Hisense independent mapping", () => {
     await view.get('[data-button-id="menu"]').trigger("click");
     await view.get('[data-trigger="long"]').trigger("click");
     await view.get(".mapping-editor .action-select").setValue("Keyboard");
-    const record = view.findAll(".mapping-editor .row-actions button").find(b => b.text() === "录入")!;
-    await record.trigger("click"); await flushPromises();
-    await vi.advanceTimersByTimeAsync(71); await flushPromises();
+    await view.get('.assignment-entries button:nth-child(2)').trigger("click");
+    await view.get('.key-mode-tabs button:nth-child(2)').trigger("click");
+    await view.get('.shortcut-capture-panel .primary').trigger("click"); await flushPromises();
+    await vi.advanceTimersByTimeAsync(421); await flushPromises();
     expect(stored.long_press_bindings?.menu).toEqual({ type: "ComboKey", value: [0xa2, 0x44] });
     expect(stored.button_bindings.menu.type).toBe("None");
     expect(invoke).toHaveBeenCalledWith("capture_shortcut_stop", { sessionId: 9 });

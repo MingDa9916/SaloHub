@@ -1027,19 +1027,11 @@ pub async fn hisense_import_mappings(
 #[tauri::command]
 pub fn hisense_reset_mappings(
     profile: Option<String>,
+    button: Option<String>,
     runtime: State<'_, Arc<Runtime>>,
 ) -> Result<HisenseConfig, String> {
     let mut next = runtime.config.read().clone();
-    if let Some(id) = profile.filter(|id| id != "default") {
-        let p = next.profiles.get_mut(&id).ok_or("应用配置不存在")?;
-        p.button_bindings.clear();
-        p.long_press_bindings.clear();
-        p.multi_click_bindings.clear();
-    } else {
-        next.button_bindings = HisenseConfig::default().button_bindings;
-        next.long_press_bindings.clear();
-        next.multi_click_bindings.clear();
-    }
+    next.reset_mappings(profile.as_deref(), button.as_deref())?;
     runtime.save(next)?;
     let saved = runtime.config.read().clone();
     Ok(saved)

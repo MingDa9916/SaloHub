@@ -213,6 +213,37 @@ impl Default for HisenseConfig {
 }
 
 impl HisenseConfig {
+    pub fn reset_mappings(
+        &mut self,
+        profile: Option<&str>,
+        button: Option<&str>,
+    ) -> Result<(), String> {
+        if button.is_some_and(|key| !BUTTONS.iter().any(|(id, _)| *id == key)) {
+            return Err("未知按键".into());
+        }
+        if let Some(id) = profile.filter(|id| *id != "default") {
+            let p = self.profiles.get_mut(id).ok_or("应用配置不存在")?;
+            if let Some(key) = button {
+                p.button_bindings.remove(key);
+                p.long_press_bindings.remove(key);
+                p.multi_click_bindings.remove(key);
+            } else {
+                p.button_bindings.clear();
+                p.long_press_bindings.clear();
+                p.multi_click_bindings.clear();
+            }
+        } else if let Some(key) = button {
+            self.button_bindings
+                .insert(key.into(), Self::default().button_bindings[key].clone());
+            self.long_press_bindings.remove(key);
+            self.multi_click_bindings.remove(key);
+        } else {
+            self.button_bindings = Self::default().button_bindings;
+            self.long_press_bindings.clear();
+            self.multi_click_bindings.clear();
+        }
+        Ok(())
+    }
     fn repair_input_sources(&mut self) -> bool {
         let before = self.button_sources.len();
         self.button_sources
@@ -544,6 +575,53 @@ impl MappingsFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reset_one_button_preserves_other_settings_and_app_overrides() {
+        let mut cfg = HisenseConfig::default();
+        cfg.sensitivity = 3.;
+        cfg.button_bindings
+            .insert("up".into(), Action::SingleKey(0x21));
+        cfg.button_bindings
+            .insert("down".into(), Action::SingleKey(65));
+        cfg.long_press_bindings
+            .insert("up".into(), Action::SingleKey(66));
+        cfg.multi_click_bindings
+            .insert("up".into(), [(2, Action::SingleKey(67))].into());
+        let p: super::super::profiles::Profile = serde_json::from_value(serde_json::json!({
+            "name":"Chrome","process_name":"chrome.exe","enabled":true,
+            "button_bindings":{"up":{"type":"SingleKey","value":68}}
+        }))
+        .unwrap();
+        cfg.profiles.insert("chrome".into(), p);
+        let sources = cfg.button_sources.clone();
+        cfg.reset_mappings(Some("default"), Some("up")).unwrap();
+        assert_eq!(cfg.button_bindings["up"], Action::SingleKey(0x26));
+        assert_eq!(cfg.button_bindings["down"], Action::SingleKey(65));
+        assert!(!cfg.long_press_bindings.contains_key("up"));
+        assert!(!cfg.multi_click_bindings.contains_key("up"));
+        assert_eq!(
+            cfg.profiles["chrome"].button_bindings["up"],
+            Action::SingleKey(68)
+        );
+        assert_eq!(cfg.sensitivity, 3.);
+        assert_eq!(cfg.button_sources, sources);
+        cfg.profiles
+            .get_mut("chrome")
+            .unwrap()
+            .long_press_bindings
+            .insert("up".into(), Action::SingleKey(69));
+        cfg.reset_mappings(Some("chrome"), Some("up")).unwrap();
+        assert!(cfg.profiles["chrome"].button_bindings.is_empty());
+        assert!(cfg.profiles["chrome"].long_press_bindings.is_empty());
+        assert_eq!(
+            cfg.effective("chrome").button_bindings["up"],
+            Action::SingleKey(0x26)
+        );
+        let before = serde_json::to_value(&cfg).unwrap();
+        assert!(cfg.reset_mappings(None, Some("missing")).is_err());
+        assert!(cfg.reset_mappings(Some("missing"), Some("up")).is_err());
+        assert_eq!(serde_json::to_value(&cfg).unwrap(), before);
+    }
     #[test]
     fn macros_roundtrip_and_realtime_bindings_are_validated() {
         let mut cfg = HisenseConfig::default();

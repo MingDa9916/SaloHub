@@ -6,13 +6,12 @@ import { open as openFile, save as saveFile } from "@tauri-apps/plugin-dialog";
 import HisenseAssignmentLibrary from "../components/HisenseAssignmentLibrary.vue";
 import HisenseProfileManager from "../components/HisenseProfileManager.vue";
 import InputMethodSettingsDialog from "../components/InputMethodSettingsDialog.vue";
-import VoiceShortcutComposer from "../components/VoiceShortcutComposer.vue";
 import { useHisenseStore } from "../stores/hisense";
 import { HISENSE_BUTTONS, type HisenseAction, type HisenseConfig, type HisenseMacro, type HisenseProfile } from "../types/hisense";
 import type { AudioDevice } from "../types";
 import { keyLabel } from "../utils/shortcut";
 import HisenseRemotePreview from "../components/HisenseRemotePreview.vue";
-import remotePhoto from "../assets/hisense-remote.png";
+import remotePhoto from "../assets/hisense-remote-cutout.png";
 import { IME_PRESETS, type ImePreset } from "../utils/imePreset";
 
 const bridge = useHisenseStore();
@@ -24,9 +23,8 @@ const editingProfile = ref("default"), profileManagerOpen = ref(false);
 const libraryTab = ref<"commands"|"keys"|"macros"|null>(null);
 const libraryTarget = ref<{id:string;slot:Trigger}>({id:"ok",slot:1});
 const editingProfileName = computed(()=>editingProfile.value==="default"?"桌面默认":config.value?.profiles?.[editingProfile.value]?.name||"桌面默认");
-const selectedTrigger = ref<Trigger>(1), manualShortcut = ref(false), transferBusy = ref(false), resetRequested = ref(false);
+const selectedTrigger = ref<Trigger>(1), transferBusy = ref(false), resetRequested = ref(false);
 const triggers: Array<[Trigger, string]> = [[1, "单击"], [2, "双击"], [3, "三击"], [4, "四连击"], ["long", "长按"]];
-const triggerLabel = computed(() => triggers.find(([id]) => id === selectedTrigger.value)![1]);
 const realtime = (action: HisenseAction) => ["PointerConfirm", "PointerAi", "TouchDrag", "VoiceInput"].includes(action.type) || (action.type === "Macro" && ["Hold","Sequence"].includes(config.value?.macros?.[action.value]?.mode||""));
 function binding(id: string, slot: Trigger = selectedTrigger.value): HisenseAction {
   const p=config.value?.profiles?.[editingProfile.value];
@@ -54,7 +52,6 @@ function writeBinding(id: string, action: HisenseAction, slot: Trigger = selecte
   else if(slot==="long")scope.long_press_bindings[id]=action;
   else {scope.multi_click_bindings[id]||={};scope.multi_click_bindings[id]![slot]=action;}
 }
-function restoreInheritedKey(){const p=config.value?.profiles?.[editingProfile.value];if(p){delete p.button_bindings[selected.value];delete p.long_press_bindings[selected.value];delete p.multi_click_bindings[selected.value];}}
 function openLibrary(tab:"commands"|"keys"|"macros"){libraryTarget.value={id:selected.value,slot:selectedTrigger.value};libraryTab.value=tab;}
 function assignFromLibrary(action:HisenseAction){writeBinding(libraryTarget.value.id,action,libraryTarget.value.slot);}
 function cleanMissingReferences(){if(!config.value)return;const cfg=config.value;
@@ -64,13 +61,11 @@ function cleanMissingReferences(){if(!config.value)return;const cfg=config.value
 function updateMacros(macros:Record<string,HisenseMacro>){if(config.value){config.value.macros=macros;cleanMissingReferences();}}
 function updateProfiles(profiles:Record<string,HisenseProfile>){if(!config.value)return;config.value.profiles=profiles;if(editingProfile.value!=="default"&&!profiles[editingProfile.value])editingProfile.value="default";if(config.value.fixed_profile&&config.value.fixed_profile!=="default"&&!profiles[config.value.fixed_profile])config.value.fixed_profile=null;cleanMissingReferences();}
 function updateProfileSettings(enabled:boolean,fixed:string|null){if(config.value){config.value.profile_switching_enabled=enabled;config.value.fixed_profile=fixed;}}
-watch(editingProfile,()=>{selectedTrigger.value=1;manualShortcut.value=false;});
+watch(editingProfile,()=>{selectedTrigger.value=1;});
 
 function triggerCount(id: string) { return triggers.filter(([slot]) => binding(id, slot).type !== "None").length; }
-function applyManualShortcut(keys: number[]) { writeBinding(selected.value, keys.length === 1 ? { type: "SingleKey", value: keys[0] } : { type: "ComboKey", value: keys }); manualShortcut.value = false; }
 function mouseDirection(event: Event) { const [dx, dy] = (event.target as HTMLSelectElement).value.split(",").map(Number); if (selectedAction.value.type === "MouseMove") { selectedAction.value.value.dx = dx as -1|0|1; selectedAction.value.value.dy = dy as -1|0|1; } }
-watch(selected, () => { selectedTrigger.value = 1; manualShortcut.value = false; });
-watch(selectedTrigger, () => { manualShortcut.value = false; });
+watch(selected, () => { selectedTrigger.value = 1; });
 const search = ref(""), hovered = ref<string | null>(null);
 const currentRow = computed(() => rows.value.find(row => row.id === selected.value) || rows.value[0]);
 const filteredRows = computed(() => rows.value.filter(row => `${row.name} ${triggers.map(([slot]) => actionLabel(binding(row.id, slot))).join(" ")}`.toLowerCase().includes(search.value.trim().toLowerCase())));
@@ -223,11 +218,28 @@ async function transferMappings(kind: "import" | "export" | "reset") {
       ready.value = false;
       if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
       config.value = next; lastSaved = JSON.stringify(next); if(editingProfile.value!=="default"&&!next.profiles?.[editingProfile.value])editingProfile.value="default";
-      selectedTrigger.value = 1; manualShortcut.value = false; resetRequested.value = false;
+      selectedTrigger.value = 1; resetRequested.value = false;
       await nextTick(); ready.value = true; saveState.value = "saved";
       message.value = kind === "import" ? "海信映射已导入；指向、语音和按键学习数据已保留。" : "已恢复默认按键映射；指向、语音和按键学习数据已保留。";
     }
   } catch (e) { message.value = `${kind === "import" ? "导入" : kind === "export" ? "导出" : "重置"}失败，当前设置已保留：${e}`; }
+  finally { transferBusy.value = false; }
+}
+async function restoreCurrentButton() {
+  if (transferBusy.value || captureTarget.value || !config.value) return;
+  transferBusy.value = true; message.value = "";
+  const button = selected.value, profile = editingProfile.value;
+  try {
+    await saveNow();
+    if (saveState.value === "error") return;
+    const restored = await invoke<HisenseConfig>("hisense_reset_mappings", { profile, button });
+    ready.value = false;
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    config.value = restored; lastSaved = JSON.stringify(restored);
+    selectedTrigger.value = 1;
+    await nextTick(); ready.value = true; saveState.value = "saved";
+    message.value = profile === "default" ? `已恢复“${label(button)}”的默认功能及触发方式。` : `“${label(button)}”已恢复继承桌面默认。`;
+  } catch (e) { message.value = `恢复失败，当前设置已保留：${e}`; }
   finally { transferBusy.value = false; }
 }
 async function applyPreset(preset: ImePreset) {
@@ -333,8 +345,8 @@ onUnmounted(() => { void saveNow(); if (bridge.status.learning_button) void invo
             <HisenseRemotePreview :selected-id="selected" :hover-id="hovered" @select="selectButton" @hover="hovered = $event" />
             <div class="preview-caption"><span>当前选择</span><strong>{{ label(selected) }}</strong><small>{{ actionLabel(currentRow.action) }}</small></div>
             <div class="channel-switch"><span>指向模式附加通道</span><div><button :class="{ active: selected === 'pointer_ok' }" @click="selectButton('pointer_ok')">指向确认</button><button :class="{ active: selected === 'pointer_right' }" @click="selectButton('pointer_right')">指向副键</button></div></div>
-            <p class="editing-scope">{{ editingProfileName }} · {{ editingProfile==='default'?'默认映射':config.profiles?.[editingProfile]?.button_bindings[selected]?'独立映射':'继承桌面默认' }}<button v-if="editingProfile!=='default'&&config.profiles?.[editingProfile]?.button_bindings[selected]" @click="restoreInheritedKey">恢复继承</button></p>
-            <div class="mapping-editor" :class="{ expanded: manualShortcut }" :data-editing-button="currentRow.id">
+            <p class="editing-scope">{{ editingProfileName }} · {{ editingProfile==='default'?'默认映射':config.profiles?.[editingProfile]?.button_bindings[selected]?'独立映射':'继承桌面默认' }}</p>
+            <div class="mapping-editor" :data-editing-button="currentRow.id">
               <div class="editor-heading"><span class="key-symbol">{{ symbols[currentRow.id] }}</span><div><h3>{{ currentRow.name }}<span class="editor-label">编辑映射</span></h3><p class="hint">{{ currentRow.id.startsWith('pointer_') ? '遥控器指向开启时使用的独立输入通道' : '更改后自动保存，无需重启服务' }}</p></div></div>
               <div class="trigger-picker" role="group" aria-label="海信映射触发方式"><button v-for="[slot, name] in triggers" :key="slot" type="button" :data-trigger="slot" :class="{ active: selectedTrigger === slot }" :aria-pressed="selectedTrigger === slot" :disabled="captureTarget !== null || transferBusy || (slot !== 1 && realtimeSelected)" @click="selectedTrigger = slot">{{ name }}<i v-if="binding(currentRow.id, slot).type !== 'None'" /></button></div>
               <p v-if="realtimeSelected" class="hint trigger-note">当前为即时按住动作，直接响应按下与松开。改为键盘、鼠标点按等基础动作后，可设置独立连击和长按。切回即时动作时会清除本键的独立触发设置。</p>
@@ -342,12 +354,11 @@ onUnmounted(() => { void saveNow(); if (bridge.status.learning_button) void invo
               <div class="editor-fields">
             <select class="action-select" :disabled="transferBusy || captureTarget !== null" :value="actionKind(selectedAction)" :aria-label="`${currentRow.name}映射功能`" @change="setAction(currentRow.id, ($event.target as HTMLSelectElement).value)"><option value="Keyboard">键盘按键 / 快捷键</option><option v-if="selectedTrigger === 1 || selectedTrigger === 'long'" value="VoiceInput">语音输入</option><option value="MouseClick">鼠标左键</option><option value="MouseRightClick">鼠标右键</option><option value="TouchClick">触屏点按</option><option v-if="selectedTrigger === 1" value="PointerConfirm">确定键（随模式）</option><option v-if="selectedTrigger === 1 || selectedTrigger === 'long'" value="TouchDrag">按住触摸拖动</option><option v-if="selectedTrigger === 1" value="PointerAi">循环切换两种模式</option><option value="ToggleHighlighter">荧光笔开关</option><option value="CycleProfile">循环切换配置文件</option><option value="StopMacros">停止所有宏</option><option value="SelectProfile">按应用自动切换</option><option value="Macro">宏…</option><option value="MouseMove">鼠标方向移动</option><option value="FocusChatGpt">打开并聚焦 ChatGPT</option><option value="TextInput">输入文字</option><option value="LaunchApp">启动应用</option><option value="None">不执行</option></select>
             <div class="binding-value"><input v-if="selectedAction.type === 'TextInput' || selectedAction.type === 'LaunchApp'" :value="textValue(selectedAction)" :aria-label="`${currentRow.name}动作内容`" :placeholder="selectedAction.type === 'TextInput' ? '要输入的文字' : '应用程序完整路径'" @input="setText(currentRow.id, ($event.target as HTMLInputElement).value)" /><span v-else>{{ actionLabel(selectedAction) }}</span></div>
-            <div class="assignment-entries" role="group" aria-label="命令按键和宏"><button :disabled="transferBusy||captureTarget!==null" @click="openLibrary('commands')">命令</button><button :disabled="transferBusy||captureTarget!==null" @click="openLibrary('keys')">按键</button><button :disabled="transferBusy||captureTarget!==null" @click="openLibrary('macros')">宏</button></div>
-            <div class="row-actions"><button v-if="actionKind(selectedAction) === 'Keyboard'" :disabled="captureTarget !== null" @click="capture(currentRow.id)">录入</button><button v-if="actionKind(selectedAction) === 'Keyboard'" :disabled="captureTarget !== null" @click="manualShortcut = !manualShortcut">手动组合</button><button :disabled="captureTarget !== null || selectedAction.type === 'None'" @click="writeBinding(currentRow.id, { type: 'None' })">清除</button><button class="learn-button" v-if="!currentRow.id.startsWith('pointer_')" :disabled="!bridge.status.connected || captureTarget !== null || bridge.status.learning_button !== null" title="识别实体按键的数据来源，不会修改映射功能" @click="learn(currentRow.id)">学习键码</button></div>
+            <div class="assignment-controls" role="group" aria-label="按键功能操作"><div class="assignment-entries" role="group" aria-label="命令按键和宏"><button :disabled="transferBusy||captureTarget!==null" @click="openLibrary('commands')">命令</button><button :disabled="transferBusy||captureTarget!==null" @click="openLibrary('keys')">按键</button><button :disabled="transferBusy||captureTarget!==null" @click="openLibrary('macros')">宏</button></div>
+            <div class="row-actions"><button :disabled="transferBusy || captureTarget !== null || selectedAction.type === 'None'" @click="writeBinding(currentRow.id, { type: 'None' })">清除</button><button class="restore-button" :disabled="transferBusy || captureTarget !== null || bridge.status.learning_button !== null" :title="editingProfile==='default'?'恢复当前按键的出厂动作及触发方式':'清除当前按键的独立映射，恢复继承桌面默认'" @click="restoreCurrentButton">恢复</button><button class="learn-button" :disabled="transferBusy || currentRow.id.startsWith('pointer_') || !bridge.status.connected || captureTarget !== null || bridge.status.learning_button !== null" :title="currentRow.id.startsWith('pointer_')?'指向通道已固定识别，无需学习':'识别遥控器实体按键，不会修改映射功能'" @click="learn(currentRow.id)">学习</button></div></div>
 
               </div>
               <div v-if="selectedAction.type === 'MouseMove'" class="mouse-options"><label>方向<select aria-label="鼠标移动方向" :value="`${selectedAction.value.dx},${selectedAction.value.dy}`" @change="mouseDirection"><option value="0,-1">向上</option><option value="0,1">向下</option><option value="-1,0">向左</option><option value="1,0">向右</option></select></label><label>步幅（px）<input v-model.number="selectedAction.value.step" aria-label="鼠标移动步幅" type="range" min="1" max="100" /><strong>{{ selectedAction.value.step }} px</strong></label><label class="switch"><input v-model="selectedAction.value.accelerate" type="checkbox" />按住逐渐加速</label></div>
-              <VoiceShortcutComposer v-if="manualShortcut" :initial-keys="shortcutKeys" :button-label="currentRow.name" :slot-label="triggerLabel" @apply="applyManualShortcut" @cancel="manualShortcut = false" />
             </div>
           </aside>
           <section class="panel mapping-list-panel">
@@ -364,16 +375,17 @@ onUnmounted(() => { void saveNow(); if (bridge.status.learning_button) void invo
             <label class="interval-control">连击间隔 <strong>{{ interval }} ms</strong><input v-model.number="interval" aria-label="海信连击间隔" type="range" min="150" max="800" step="50" /></label>
             <p class="hint list-hint">ⓘ 选择图片或列表中的任意按键即可编辑；所有按键均可设为语音输入。</p>
             <p class="hint learning-hint">选择功能后会自动保存，已识别的按键无需再学习。“学习键码”仅用于首次识别或纠正识别；若只发送红外，需硬件支持后才能接收。</p>
-          </section>
-        </div>
-      </section>
-      <section class="panel quick-section">
+      <section class="quick-section">
         <div class="section-heading"><h2>快捷操作</h2><span class="hint">海信遥控器设置</span></div>
         <div class="quick-grid">
           <button @click="openSettings('pointer')"><strong>指向与防抖</strong><small>灵敏度、慢移精度、触摸模式</small></button>
           <button @click="openSettings('voice')"><strong>输入法设置</strong><small>输入法预设、快捷键与麦克风</small></button>
           <button @click="openSettings('bridge')"><strong>按键桥接</strong><small>{{ bridge.status.running ? '运行中 · 管理连接' : '已暂停 · 管理连接' }}</small></button>
           <button @click="openSettings('receiver')"><strong>接收器管理</strong><small>启用独立映射或恢复驱动</small></button>
+        </div>
+      </section>
+
+          </section>
         </div>
       </section>
       <Teleport to="body">
@@ -425,7 +437,7 @@ onUnmounted(() => { void saveNow(); if (bridge.status.learning_button) void invo
           </section>
         </div>
       </Teleport>
-        <HisenseAssignmentLibrary :open="libraryTab!==null" :initial-tab="libraryTab||'commands'" :macros="config.macros||{}" :profiles="config.profiles||{}" :button-label="label(libraryTarget.id)" :slot-label="triggers.find(([id])=>id===libraryTarget.slot)?.[1]||'单击'" :base-slot="libraryTarget.slot===1" :allow-held="libraryTarget.slot===1||libraryTarget.slot==='long'" :disabled="transferBusy||captureTarget!==null" @close="libraryTab=null" @assign="assignFromLibrary" @macros-change="updateMacros" />
+        <HisenseAssignmentLibrary :open="libraryTab!==null" :initial-tab="libraryTab||'commands'" :initial-keys="shortcutKeys" :macros="config.macros||{}" :profiles="config.profiles||{}" :button-label="label(libraryTarget.id)" :slot-label="triggers.find(([id])=>id===libraryTarget.slot)?.[1]||'单击'" :base-slot="libraryTarget.slot===1" :allow-held="libraryTarget.slot===1||libraryTarget.slot==='long'" :disabled="transferBusy||captureTarget!==null" @close="libraryTab=null" @assign="assignFromLibrary" @macros-change="updateMacros" />
         <HisenseProfileManager :open="profileManagerOpen" :profiles="config.profiles||{}" :enabled="config.profile_switching_enabled!==false" :fixed="config.fixed_profile||null" :editing="editingProfile" :active-name="bridge.status.active_profile_name||'桌面默认'" @close="profileManagerOpen=false" @change="updateProfiles" @settings="updateProfileSettings" @select="editingProfile=$event" />
         <InputMethodSettingsDialog :open="activeDialog === 'voice'" :config-ready="ready" :saving="imeSaving || saveState === 'saving'" :apply-hint="imeApplyHint" :active-preset="activeImePreset" remote-name="海信遥控器" @close="closeSettings" @apply="applyPreset">
           <template #settings><div class="voice-extra" id="hisense-voice"><div class="section-heading"><h3>海信语音与麦克风</h3><span :class="['voice-state', { active: bridge.status.voice_active }]">{{ appliedVoice }}</span></div><p class="hint">自定义快捷键与接收器麦克风设置，修改后自动保存。</p>
@@ -453,7 +465,7 @@ onUnmounted(() => { void saveNow(); if (bridge.status.learning_button) void invo
 .panel { border-radius: 14px; box-shadow: var(--shadow-sm); }
 .device-overview { display: grid; grid-template-columns: 1.1fr 1fr; padding: 24px; min-height: 180px; margin-bottom: 16px; }
 .device-primary { display: flex; align-items: center; gap: 24px; padding-right: 24px; border-right: 1px solid var(--border); }
-.device-primary img { width: 62px; height: 170px; object-fit: cover; border-radius: 8px; }
+.device-primary img { width: 62px; height: 170px; object-fit: contain; filter: drop-shadow(0 7px 8px rgba(15, 23, 42, 0.20)); }
 .device-primary h2 { font-size: 21px; margin: 12px 0 5px; }
 .model { font-size: 11px; color: var(--text-secondary); margin: 0; letter-spacing: .8px; }
 .device-primary .connection { padding: 0; background: transparent; font-size: 12px; display: inline-flex; gap: 8px; align-items: center; }
@@ -516,7 +528,7 @@ h3 { font-size: 15px; margin: 0; }
 .list-hint { margin: 14px 0 0; font-size: 11px; }
 .learning-hint { font-size: 10px; margin-bottom: 0; }
 .empty-state { padding: 20px; font-size: 12px; color: var(--text-secondary); text-align: center; }
-.quick-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 20px; }
+.mapping-list-panel .quick-section { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border); }.quick-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-top: 20px; }
 .quick-grid button { padding: 16px; background: var(--card-bg); text-align: left; white-space: normal; }
 .quick-grid strong { display: block; margin-bottom: 10px; font-size: 12px; }
 .quick-grid small { color: var(--text-secondary); font-size: 10px; line-height: 1.6; }
@@ -638,8 +650,9 @@ h3 { font-size: 15px; margin: 0; }
 .remote-panel .editor-fields > select { width: 100%; min-width: 0; box-sizing: border-box; }
 .remote-panel .editor-fields .binding-value { min-width: 0; }
 .remote-panel .editor-fields .row-actions { margin-left: 0; flex-wrap: wrap; justify-content: flex-start; }
-.remote-panel .trigger-picker { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); }
-.remote-panel .trigger-picker button { justify-content: center; padding: 7px 5px; }
+.remote-panel .trigger-picker { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); }
+.remote-panel .trigger-picker button { grid-column: span 2; justify-content: center; padding: 7px 5px; }
+.remote-panel .trigger-picker button:nth-child(n+4) { grid-column: span 3; }
 .remote-panel .mouse-options { flex-direction: column; align-items: stretch; }
 .voice-extra { max-width: 100%; min-width: 0; }.voice-extra .section-heading { flex-wrap: wrap; }
 .voice-extra .shortcut { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -647,6 +660,6 @@ h3 { font-size: 15px; margin: 0; }
 .battery-shell { position: relative; }.battery-shell.has-power { color: var(--success); }
 .battery-shell b { position: absolute; left: 7px; top: -4px; font: bold 13px/15px sans-serif; background: var(--card-bg); }
 .battery-detail { display: block; margin-top: 7px; color: var(--text-secondary); font-size: 10px; font-weight: 400; }
-.profile-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px;padding:16px 20px}.profile-bar>div{display:grid;gap:5px}.profile-bar span,.profile-bar small{font-size:10px;color:var(--text-secondary)}.profile-bar strong{font-size:14px}.profile-bar label{margin:0;font-size:11px;display:flex;align-items:center;gap:10px}.profile-bar label select{margin:0;min-width:160px;max-width:260px}.editing-scope{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--text-secondary);margin:16px 0 0}.editing-scope button{padding:4px 7px;font-size:10px}.assignment-entries{display:flex;gap:5px;padding:4px;background:var(--surface-soft);border:1px solid var(--border);border-radius:10px}.assignment-entries button{flex:1;color:var(--primary);background:var(--card-bg);font-weight:600}.device-power dd{display:flex;align-items:center;gap:8px}.power-symbol{font-size:19px}.device-power small{display:block;margin-top:7px;font-size:10px;color:var(--text-secondary)}
+.profile-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:18px;padding:16px 20px}.profile-bar>div{display:grid;gap:5px}.profile-bar span,.profile-bar small{font-size:10px;color:var(--text-secondary)}.profile-bar strong{font-size:14px}.profile-bar label{margin:0;font-size:11px;display:flex;align-items:center;gap:10px}.profile-bar label select{margin:0;min-width:160px;max-width:260px}.editing-scope{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:var(--text-secondary);margin:16px 0 0}.editing-scope button{padding:4px 7px;font-size:10px}.assignment-controls{padding:5px;background:var(--surface-soft);border:1px solid var(--border);border-radius:12px}.assignment-entries{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.remote-panel .editor-fields .assignment-controls .row-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px}.assignment-controls button{min-width:0;min-height:37px;padding:8px 5px;background:var(--card-bg)}.assignment-entries button{flex:1;color:var(--primary);background:var(--card-bg);font-weight:600}.device-power dd{display:flex;align-items:center;gap:8px}.power-symbol{font-size:19px}.device-power small{display:block;margin-top:7px;font-size:10px;color:var(--text-secondary)}
 .profile-bar label { white-space: nowrap; }.profile-bar label select { width: auto; }
 </style>

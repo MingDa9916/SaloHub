@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import photo from "../assets/hisense-remote.png";
+import photo from "../assets/hisense-remote-cutout.png";
 import { HISENSE_BUTTONS } from "../types/hisense";
 
 defineProps<{ selectedId: string; hoverId?: string | null }>();
@@ -31,7 +31,7 @@ const physical = (id?: string | null) => id === "pointer_ok" ? "ok" : id;
 
 <style scoped>
 .hisense-remote { position: relative; width: min(100%, 210px); aspect-ratio: 361/994; margin: 0 auto; }
-img { display: block; width: 100%; border-radius: 18px; user-select: none; }
+img { display: block; width: 100%; height: 100%; user-select: none; filter: drop-shadow(0 9px 10px rgba(15, 23, 42, 0.22)); }
 .remote-hotspot { position: absolute; transform: translate(-50%,-50%); border: 2px solid transparent; border-radius: 50%; background: transparent; padding: 0; cursor: pointer; transition: background .15s, box-shadow .15s; }
 .remote-hotspot:hover, .remote-hotspot.hovered { border-color: var(--primary); background: #3478f622; box-shadow: 0 0 0 4px #3478f61a; }
 .remote-hotspot.active { border-color: var(--primary); background: #3478f63b; box-shadow: 0 0 0 5px #3478f622, 0 0 18px #3478f633; }

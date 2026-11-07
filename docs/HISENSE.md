@@ -195,3 +195,11 @@ AI 每次按下只切换一次，长按 AI 不另外执行滑动。左上角提�
 用户图标从其提供的 PNG 通过 Tauri 图标工具转换；应用数据标识保留以读取既有配置。私有 GitHub 仓库地址保持原地址，名称和可执行文件更新为 SaloHUb，旧发布者和旧产品的安装目录、自启入口保留迁移路径。
 
 已核对原生开发窗口：SaloHUb 名称、用户图标、命令库、宏四类型和应用配置管理均已显示。全量前端 113 项测试及 10 项桥接脚本测试通过；新增宏与应用切换的真实遥控器操作仍待用户联调。应用信息暂不可读取时回退默认配置，防止沿用上一应用的映射。
+
+## 映射编辑区整理（2026-11-07）
+
+命令 / 按键 / 宏与清除 / 恢复 / 学习统一为两排三列操作；录入快捷键和手动组合移入按键弹窗。关闭弹窗会结束快捷键捕获。恢复仅针对当前按键的全部触发设置：桌面默认恢复出厂动作，应用独立配置清除本键覆盖并恢复继承；保留其他键、宏库、语音、指向和学习数据。触发方式上排三项等宽、下排两项等宽。快捷操作移入右侧映射列表下方。
+
+透明遥控器素材使用内置 imagegen 编辑原照片并清理边缘，保存为 `src/assets/hisense-remote-cutout.png`；界面使用 CSS drop-shadow 添加阴影，保留原照片供追溯。最终清理提示词：
+
+> Background-extraction cleanup edit only. The image is already a transparent cutout of a silver Hisense remote. Remove the small isolated white/gray background scraps and edge fringe along the outside left and right of the remote, to produce one clean continuous silhouette with true transparent alpha all around. Preserve EXACTLY all remote interior pixels, shape, logos and button symbols, full canvas dimensions/composition and button positions. Do not crop, resize, move the remote, redesign or add anything. No baked shadow: CSS adds it later. There should be no disconnected opaque scraps outside the product boundary and no white matte halo.
