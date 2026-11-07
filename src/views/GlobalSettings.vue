@@ -70,7 +70,7 @@ onMounted(async () => {
   settingsReady.value = true;
 });
 
-const isHisenseBuild = computed(() => appVersion.value.includes("-hisense."));
+const isHisenseBuild = computed(() => appVersion.value.includes("-hisense.") || Number(appVersion.value.replace(/^v/, "").split(".")[0]) >= 1);
 const updateControlState = computed(() => {
   if (isHisenseBuild.value) return { label: "查看更新与安装包", tone: "idle", progress: 0, indeterminate: false, disabled: false };
   if (update.phase === "checking") {
@@ -418,7 +418,7 @@ async function openExternal(url: string) {
                 <div class="author-identity">
                   <span class="author-avatar author-monogram" aria-hidden="true">M</span>
                   <div class="author-card-copy">
-                    <p class="credit-kicker">NEXUS PRIME</p>
+                    <p class="credit-kicker">SaloHUb</p>
                     <h3>MingDa9916</h3>
                     <p class="author-description">海信适配与 Windows 版维护</p>
                   </div>
@@ -426,7 +426,7 @@ async function openExternal(url: string) {
                 <button
                   class="credit-link author-project-link"
                   type="button"
-                  aria-label="打开 Nexus Prime GitHub 项目：MingDa9916/Nexus-Prime-Hisense"
+                  aria-label="打开 SaloHUb GitHub 项目：MingDa9916/Nexus-Prime-Hisense"
                   @click="openExternal('https://github.com/MingDa9916/Nexus-Prime-Hisense')"
                 >
                   <span>GitHub：</span>

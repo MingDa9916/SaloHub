@@ -52,7 +52,7 @@ function toggleTheme() {
         <img src="/favicon.png" alt="" />
       </div>
       <div class="brand-copy">
-        <strong>Nexus Prime</strong>
+        <strong>SaloHUb</strong>
         <button v-if="update.canOpen" type="button" class="brand-version is-update" :aria-label="`发现新版本 ${update.release?.version}，查看更新详情`" @click="update.openDialog">
           {{ appVersion }}<i aria-hidden="true"></i>
         </button>
@@ -278,4 +278,6 @@ function toggleTheme() {
   .device-chip { max-width: 154px; margin-left: 0; }
   .main-nav button { min-width: 76px; padding: 0 12px; }
 }
+.brand-symbol { background: #fff; border-radius: 10px; }
+.brand-symbol img { width: 32px; height: 32px; object-fit: contain; }
 </style>

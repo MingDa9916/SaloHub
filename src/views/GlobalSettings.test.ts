@@ -146,7 +146,7 @@ describe("GlobalSettings autostart tray preference", () => {
   });
 
   it("opens this private fork's release page without an anonymous update request", async () => {
-    vi.mocked(getVersion).mockResolvedValueOnce("0.5.6-hisense.4");
+    vi.mocked(getVersion).mockResolvedValueOnce("1.0.0");
     const wrapper = await mountSettings();
     await wrapper.findAll('[role="tab"]')[2].trigger("click");
     expect(wrapper.text()).toContain("MingDa9916");

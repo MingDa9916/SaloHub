@@ -122,7 +122,7 @@ pub fn run() {
             }
             app.manage(update::UpdateManager::default());
 
-            log::info!("Nexus Prime starting...");
+            log::info!("SaloHUb starting...");
             #[cfg(debug_assertions)]
             log::info!("build_profile=debug (开发包)");
             #[cfg(not(debug_assertions))]
@@ -264,7 +264,7 @@ pub fn run() {
                     }
                 })?;
 
-            log::info!("Nexus Prime started successfully");
+            log::info!("SaloHUb started successfully");
             let hisense = app.state::<std::sync::Arc<bridges::hisense::Runtime>>();
             if hisense.auto_connect() {
                 if let Err(error) = hisense.inner().start(app.handle().clone()) {
@@ -274,6 +274,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            bridges::hisense::hisense_macro_record_start,
+            bridges::hisense::hisense_macro_record_poll,
+            bridges::hisense::hisense_stop_macros,
             bridges::hisense::hisense_status,
             bridges::hisense::hisense_config,
             bridges::hisense::hisense_save_config,

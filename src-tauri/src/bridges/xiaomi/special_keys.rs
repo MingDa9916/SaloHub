@@ -335,7 +335,8 @@ fn hook_loop() {
 
             // 快捷键录入：最优先吞掉全部物理键（含 WM_SYSKEY* / Alt+Space / Win 热键）
             // 必须在 CallNextHookEx 之前；第二套短生命周期钩子不可靠（易被超时静默卸掉）
-            if crate::bridges::shared::shortcut_capture::try_swallow_capture_key(vk, msg, injected)
+            if crate::bridges::hisense::record_macro_key(vk,msg,injected,flags & 1 != 0)
+                || crate::bridges::shared::shortcut_capture::try_swallow_capture_key(vk, msg, injected)
             {
                 return LRESULT(1);
             }

@@ -45,6 +45,7 @@ export function keyLabel(vk: number): string {
     0x08: "Backspace",
     0x09: "Tab",
     0x0d: "Enter",
+    0x10d: "Num Enter",
     0x13: "Pause",
     0x14: "CapsLock",
     0x1b: "Esc",

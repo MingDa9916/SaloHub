@@ -37,6 +37,11 @@ pub enum Action {
     PointerConfirm,
     TouchDrag,
     PointerAi,
+    ToggleHighlighter,
+    Macro(String),
+    CycleProfile,
+    StopMacros,
+    SelectProfile(String),
     TextInput(String),
     LaunchApp(String),
     VoiceInput,
@@ -60,9 +65,11 @@ impl Action {
     }
     fn validate(&self) -> Result<(), String> {
         match self {
-            Self::SingleKey(k) if *k == 0 || *k > 0xfe => Err("无效键码".into()),
+            Self::SingleKey(k) if !super::macro_engine::valid_key(*k) => Err("无效键码".into()),
             Self::ComboKey(k)
-                if k.is_empty() || k.len() > 8 || k.iter().any(|k| *k == 0 || *k > 0xfe) =>
+                if k.is_empty()
+                    || k.len() > 8
+                    || k.iter().any(|k| !super::macro_engine::valid_key(*k)) =>
             {
                 Err("无效组合键".into())
             }
@@ -88,6 +95,14 @@ pub struct HisenseConfig {
     pub auto_connect: bool,
     pub pointer_enabled: bool,
     pub touch_indicator_enabled: bool,
+    pub indicator_color: String,
+    pub indicator_pressed_color: String,
+    pub highlight_trail_enabled: bool,
+    pub highlight_trail_color: String,
+    pub highlight_trail_width_px: u32,
+    pub highlight_trail_duration_ms: u64,
+    pub highlight_trail_opacity_percent: u32,
+    pub highlight_trail_glow_percent: u32,
     pub pointer_hold_ms: u64,
     #[serde(default)]
     pub pointer_gesture_revision: u8,
@@ -96,6 +111,10 @@ pub struct HisenseConfig {
     pub precision_ratio: f64,
     pub smoothing_ms: f64,
     pub deadzone_pixels: f64,
+    pub macros: BTreeMap<String, super::macro_engine::Definition>,
+    pub profiles: BTreeMap<String, super::profiles::Profile>,
+    pub profile_switching_enabled: bool,
+    pub fixed_profile: Option<String>,
     pub button_bindings: BTreeMap<String, Action>,
     pub long_press_bindings: BTreeMap<String, Action>,
     pub multi_click_bindings: BTreeMap<String, BTreeMap<u8, Action>>,
@@ -137,9 +156,21 @@ impl Default for HisenseConfig {
         bindings.insert("ai".into(), Action::PointerAi);
         bindings.insert("pointer_right".into(), Action::MouseRightClick);
         Self {
+            macros: BTreeMap::new(),
+            profiles: BTreeMap::new(),
+            profile_switching_enabled: true,
+            fixed_profile: None,
             auto_connect: true,
             pointer_enabled: true,
             touch_indicator_enabled: true,
+            indicator_color: "#ffffff".into(),
+            indicator_pressed_color: "#3b82f6".into(),
+            highlight_trail_enabled: true,
+            highlight_trail_color: "#22d3ee".into(),
+            highlight_trail_width_px: 6,
+            highlight_trail_duration_ms: 650,
+            highlight_trail_opacity_percent: 66,
+            highlight_trail_glow_percent: 50,
             pointer_hold_ms: 350,
             pointer_gesture_revision: 2,
             sensitivity: 2.,
@@ -164,6 +195,7 @@ impl Default for HisenseConfig {
                 ("key:65", "menu"),
                 ("key:80", "volume_up"),
                 ("key:81", "volume_down"),
+                ("key:94", "shortcut"),
                 ("pen:tip", "pointer_ok"),
                 ("pen:barrel", "pointer_right"),
             ]
@@ -181,7 +213,129 @@ impl Default for HisenseConfig {
 }
 
 impl HisenseConfig {
+    fn repair_input_sources(&mut self) -> bool {
+        let before = self.button_sources.len();
+        self.button_sources
+            .retain(|source, _| !super::protocol::telemetry_source(source));
+        let removed = self.button_sources.len() != before;
+        if !self.button_sources.contains_key("key:94") {
+            self.button_sources
+                .insert("key:94".into(), "shortcut".into());
+            return true;
+        }
+        removed
+    }
+    pub fn indicator_style(&self) -> super::visual::Style {
+        super::visual::Style {
+            color: super::visual::Rgb::parse(&self.indicator_color)
+                .unwrap_or(super::visual::Style::default().color),
+            pressed_color: super::visual::Rgb::parse(&self.indicator_pressed_color)
+                .unwrap_or(super::visual::Style::default().pressed_color),
+            trail: super::visual::TrailOptions {
+                width_px: self.highlight_trail_width_px,
+                duration_ms: self.highlight_trail_duration_ms,
+                opacity_percent: self.highlight_trail_opacity_percent,
+                glow_percent: self.highlight_trail_glow_percent,
+            },
+            trail_enabled: self.highlight_trail_enabled,
+            trail_color: super::visual::Rgb::parse(&self.highlight_trail_color)
+                .unwrap_or(super::visual::Style::default().trail_color),
+        }
+    }
+    pub fn realtime(&self, action: &Action) -> bool {
+        action.realtime()
+            || matches!(action, Action::Macro(id) if self.macros.get(id).is_some_and(|m|m.realtime()))
+    }
+    pub fn profile_for(&self, process: &str) -> String {
+        if !self.profile_switching_enabled {
+            return "default".into();
+        }
+        if let Some(id) = &self.fixed_profile {
+            return if id == "default" || self.profiles.get(id).is_some_and(|p| p.enabled) {
+                id.clone()
+            } else {
+                "default".into()
+            };
+        }
+        self.profiles
+            .iter()
+            .find(|(_, p)| p.enabled && p.process_name.to_lowercase() == process.to_lowercase())
+            .map(|(id, _)| id.clone())
+            .unwrap_or_else(|| "default".into())
+    }
+    pub fn effective(&self, id: &str) -> Self {
+        let mut next = self.clone();
+        if let Some(p) = self.profiles.get(id) {
+            for (key, action) in &p.button_bindings {
+                next.button_bindings.insert(key.clone(), action.clone());
+                next.long_press_bindings.remove(key);
+                next.multi_click_bindings.remove(key);
+                if let Some(a) = p.long_press_bindings.get(key) {
+                    next.long_press_bindings.insert(key.clone(), a.clone());
+                }
+                if let Some(a) = p.multi_click_bindings.get(key) {
+                    next.multi_click_bindings.insert(key.clone(), a.clone());
+                }
+            }
+        }
+        next
+    }
+    fn validate_action(&self, action: &Action) -> Result<(), String> {
+        action.validate()?;
+        match action {
+            Action::Macro(id) if !self.macros.contains_key(id) => Err("映射引用的宏不存在".into()),
+            Action::SelectProfile(id)
+                if !id.is_empty() && id != "default" && !self.profiles.contains_key(id) =>
+            {
+                Err("映射引用的应用配置不存在".into())
+            }
+            _ => Ok(()),
+        }
+    }
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_internal(true)
+    }
+    fn validate_internal(&self, check_profiles: bool) -> Result<(), String> {
+        if self.macros.len() > 64 || self.profiles.len() > 64 {
+            return Err("宏和应用配置分别最多 64 个".into());
+        }
+        for (id, m) in &self.macros {
+            if !super::profiles::valid_id(id) {
+                return Err("宏编号无效".into());
+            }
+            m.validate()?;
+        }
+        if let Some(id) = &self.fixed_profile {
+            if id != "default" && !self.profiles.contains_key(id) {
+                return Err("固定配置不存在".into());
+            }
+        }
+        let mut names = std::collections::BTreeSet::new();
+        for (id, p) in &self.profiles {
+            if id == "default" || !super::profiles::valid_id(id) {
+                return Err("配置编号无效".into());
+            }
+            p.validate()?;
+            if p.enabled && !names.insert(p.process_name.to_lowercase()) {
+                return Err("同一进程只能启用一个自动配置".into());
+            }
+            if check_profiles {
+                self.effective(id).validate_internal(false)?;
+            }
+        }
+        if !(2..=20).contains(&self.highlight_trail_width_px)
+            || !(150..=2000).contains(&self.highlight_trail_duration_ms)
+            || !(10..=100).contains(&self.highlight_trail_opacity_percent)
+            || self.highlight_trail_glow_percent > 100
+        {
+            return Err("荧光笔参数超出范围".into());
+        }
+        if super::visual::Rgb::parse(&self.indicator_color).is_none()
+            || super::visual::Rgb::parse(&self.indicator_pressed_color).is_none()
+            || super::visual::Rgb::parse(&self.highlight_trail_color).is_none()
+        {
+            return Err("圆点颜色需为 #RRGGBB 格式".into());
+        }
         if !self.precision_ratio.is_finite() || !(0.1..=0.75).contains(&self.precision_ratio) {
             return Err("慢移倍率需为 10%–75%".into());
         }
@@ -217,7 +371,7 @@ impl HisenseConfig {
             if !BUTTONS.iter().any(|(b, _)| b == id) {
                 return Err("未知遥控器按键".into());
             }
-            action.validate()?;
+            self.validate_action(action)?;
         }
         for (id, slots) in &self.multi_click_bindings {
             if !BUTTONS.iter().any(|(b, _)| b == id) {
@@ -227,8 +381,8 @@ impl HisenseConfig {
                 if !(2..=4).contains(count) {
                     return Err("仅支持 2、3、4 连击".into());
                 }
-                action.validate()?;
-                if action.realtime() {
+                self.validate_action(action)?;
+                if self.realtime(action) {
                     return Err("连击不能执行需持续按住的语音、拖动或 UWB 模式动作".into());
                 }
             }
@@ -238,14 +392,20 @@ impl HisenseConfig {
                 return Err("UWB 确认和模式切换请设为基础动作".into());
             }
             if !matches!(action, Action::None)
-                && self.button_bindings.get(id).is_some_and(Action::realtime)
+                && self
+                    .button_bindings
+                    .get(id)
+                    .is_some_and(|a| self.realtime(a))
             {
                 return Err("实时语音、拖动和 UWB 按键不能同时配置独立长按".into());
             }
         }
         for (id, slots) in &self.multi_click_bindings {
             if slots.values().any(|a| !matches!(a, Action::None))
-                && self.button_bindings.get(id).is_some_and(Action::realtime)
+                && self
+                    .button_bindings
+                    .get(id)
+                    .is_some_and(|a| self.realtime(a))
             {
                 return Err("实时语音、拖动和 UWB 按键不能同时配置连击".into());
             }
@@ -285,6 +445,9 @@ impl HisenseConfig {
             cfg.pointer_gesture_revision = 2;
             cfg.save(path)?;
         }
+        if cfg.repair_input_sources() {
+            cfg.save(path)?;
+        }
         cfg.validate()?;
         Ok(cfg)
     }
@@ -311,6 +474,14 @@ impl HisenseConfig {
 pub struct MappingsFile {
     pub format: String,
     pub schema_version: u32,
+    #[serde(default)]
+    pub macros: BTreeMap<String, super::macro_engine::Definition>,
+    #[serde(default)]
+    pub profiles: BTreeMap<String, super::profiles::Profile>,
+    #[serde(default = "default_profile_switching")]
+    pub profile_switching_enabled: bool,
+    #[serde(default)]
+    pub fixed_profile: Option<String>,
     pub button_bindings: BTreeMap<String, Action>,
     #[serde(default)]
     pub long_press_bindings: BTreeMap<String, Action>,
@@ -319,12 +490,19 @@ pub struct MappingsFile {
     #[serde(default = "default_interval")]
     pub multi_click_interval_ms: u64,
 }
+fn default_profile_switching() -> bool {
+    true
+}
 fn default_interval() -> u64 {
     300
 }
 impl MappingsFile {
     pub fn from_config(cfg: &HisenseConfig) -> Self {
         Self {
+            macros: cfg.macros.clone(),
+            profiles: cfg.profiles.clone(),
+            profile_switching_enabled: cfg.profile_switching_enabled,
+            fixed_profile: cfg.fixed_profile.clone(),
             format: "nexus-prime-hisense-mappings".into(),
             schema_version: 1,
             button_bindings: cfg.button_bindings.clone(),
@@ -338,6 +516,17 @@ impl MappingsFile {
             return Err("不支持的海信映射格式或版本".into());
         }
         let mut next = cfg.clone();
+        next.macros = self.macros;
+        next.profiles = self.profiles;
+        next.profile_switching_enabled = self.profile_switching_enabled;
+        next.fixed_profile = self.fixed_profile;
+        if next
+            .fixed_profile
+            .as_ref()
+            .is_some_and(|id| id != "default" && !next.profiles.contains_key(id))
+        {
+            next.fixed_profile = None;
+        }
         next.button_bindings = BUTTONS
             .iter()
             .map(|(id, _)| ((*id).into(), Action::None))
@@ -356,12 +545,49 @@ impl MappingsFile {
 mod tests {
     use super::*;
     #[test]
+    fn macros_roundtrip_and_realtime_bindings_are_validated() {
+        let mut cfg = HisenseConfig::default();
+        cfg.button_bindings
+            .insert("menu".into(), Action::Macro("sample".into()));
+        assert!(cfg.validate().is_err());
+        let def:super::super::macro_engine::Definition=serde_json::from_str(r##"{"name":"Sample","mode":"Once","color":"#3478f6","use_default_delay":true,"default_delay_ms":50,"show_key_transitions":true,"press":[{"type":"KeyDown","value":269},{"type":"KeyUp","value":269}]}"##).unwrap();
+        cfg.macros.insert("sample".into(), def.clone());
+        cfg.validate().unwrap();
+        cfg.multi_click_bindings
+            .insert("home".into(), [(2, Action::Macro("sample".into()))].into());
+        cfg.validate().unwrap();
+        let document = MappingsFile::from_config(&cfg);
+        let json = serde_json::to_string(&document).unwrap();
+        let mut target = HisenseConfig::default();
+        serde_json::from_str::<MappingsFile>(&json)
+            .unwrap()
+            .apply(&mut target)
+            .unwrap();
+        assert_eq!(target.macros["sample"], def);
+        assert_eq!(
+            target.button_bindings["menu"],
+            Action::Macro("sample".into())
+        );
+        cfg.macros.get_mut("sample").unwrap().mode = super::super::macro_engine::Mode::Hold;
+        assert!(cfg.validate().is_err());
+        cfg.multi_click_bindings.clear();
+        cfg.validate().unwrap();
+    }
+    #[test]
     fn old_json_keeps_user_actions_and_gains_mapping_defaults() {
         let mut value = serde_json::to_value(HisenseConfig::default()).unwrap();
         for field in [
             "long_press_bindings",
             "multi_click_bindings",
             "multi_click_interval_ms",
+            "indicator_color",
+            "indicator_pressed_color",
+            "highlight_trail_enabled",
+            "highlight_trail_color",
+            "highlight_trail_width_px",
+            "highlight_trail_duration_ms",
+            "highlight_trail_opacity_percent",
+            "highlight_trail_glow_percent",
         ] {
             value.as_object_mut().unwrap().remove(field);
         }
@@ -466,6 +692,80 @@ mod tests {
         c.long_press_bindings
             .insert("home".into(), Action::VoiceInput);
         c.validate().unwrap();
+    }
+    #[test]
+    fn visual_preferences_validate_and_old_config_gets_defaults() {
+        let mut json = serde_json::to_value(HisenseConfig::default()).unwrap();
+        for key in [
+            "indicator_color",
+            "indicator_pressed_color",
+            "highlight_trail_enabled",
+            "highlight_trail_color",
+            "highlight_trail_width_px",
+            "highlight_trail_duration_ms",
+            "highlight_trail_opacity_percent",
+            "highlight_trail_glow_percent",
+        ] {
+            json.as_object_mut().unwrap().remove(key);
+        }
+        let mut cfg: HisenseConfig = serde_json::from_value(json).unwrap();
+        assert_eq!(
+            cfg.indicator_style(),
+            super::super::visual::Style::default()
+        );
+        cfg.indicator_color = "#ff9900".into();
+        cfg.highlight_trail_enabled = true;
+        cfg.validate().unwrap();
+        assert_eq!(
+            cfg.indicator_style().color,
+            super::super::visual::Rgb(255, 153, 0)
+        );
+        cfg.highlight_trail_color = "#oops".into();
+        assert!(cfg.validate().is_err());
+    }
+    #[test]
+    fn highlighter_defaults_and_limits_preserve_explicit_disable() {
+        let cfg: HisenseConfig = serde_json::from_str("{}").unwrap();
+        assert!(cfg.highlight_trail_enabled);
+        let cfg: HisenseConfig =
+            serde_json::from_str(r#"{"highlight_trail_enabled":false}"#).unwrap();
+        assert!(!cfg.highlight_trail_enabled);
+        cfg.validate().unwrap();
+        for (width, duration, opacity, glow) in [
+            (1, 650, 66, 50),
+            (6, 2001, 66, 50),
+            (6, 650, 9, 50),
+            (6, 650, 66, 101),
+        ] {
+            let mut cfg = HisenseConfig::default();
+            cfg.highlight_trail_width_px = width;
+            cfg.highlight_trail_duration_ms = duration;
+            cfg.highlight_trail_opacity_percent = opacity;
+            cfg.highlight_trail_glow_percent = glow;
+            assert!(cfg.validate().is_err());
+        }
+        assert!(!Action::ToggleHighlighter.realtime());
+    }
+    #[test]
+    fn repairs_false_learning_without_overwriting_user_actions_or_real_sources() {
+        let mut cfg = HisenseConfig::default();
+        cfg.button_bindings
+            .insert("shortcut".into(), Action::PointerAi);
+        cfg.button_sources.remove("key:94");
+        cfg.button_sources
+            .insert("raw:f08002b80100004af6".into(), "shortcut".into());
+        let actions = cfg.button_bindings.clone();
+        assert!(cfg.repair_input_sources());
+        assert_eq!(cfg.button_sources["key:94"], "shortcut");
+        assert!(!cfg
+            .button_sources
+            .keys()
+            .any(|s| super::super::protocol::telemetry_source(s)));
+        assert_eq!(cfg.button_bindings, actions);
+        assert!(!cfg.repair_input_sources());
+        cfg.button_sources.insert("key:94".into(), "menu".into());
+        assert!(!cfg.repair_input_sources());
+        assert_eq!(cfg.button_sources["key:94"], "menu");
     }
     #[test]
     fn every_button_can_be_voice_without_changing_other_bindings() {

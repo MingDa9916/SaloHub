@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/refs/heads/v2/crates/tauri-utils/schema.json",
-  "productName": "Nexus Prime",
-  "version": "0.5.6-hisense.4",
+  "productName": "SaloHUb",
+  "version": "1.0.0",
   "identifier": "com.lightyear.nexusprime",
   "build": {
     "frontendDist": "../dist",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Nexus Prime · 海信增强版",
+        "title": "SaloHUb",
         "width": 1080,
         "height": 814,
         "minWidth": 880,
@@ -70,5 +70,6 @@
     "shell": {
       "open": true
     }
-  }
+  },
+  "mainBinaryName": "SaloHUb"
 }

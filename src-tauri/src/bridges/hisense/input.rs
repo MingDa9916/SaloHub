@@ -17,6 +17,8 @@ pub fn extended(vk: u16, scan: u32) -> bool {
     scan & 0xff00 == 0xe000 || matches!(vk,0x21..=0x28|0x2c..=0x2e|0x5b|0x5c|0x6f|0x90|0xa3|0xa5)
 }
 pub fn key(vk: u16, down: bool) -> bool {
+    let keypad_enter = vk == 0x10d;
+    let vk = if keypad_enter { 0x0d } else { vk };
     let scan = unsafe { MapVirtualKeyW(vk as u32, MAPVK_VK_TO_VSC_EX) };
     let use_scan = scan != 0 && vk < 0xa6 && vk != 0x13;
     let mut flags = if down {
@@ -26,7 +28,7 @@ pub fn key(vk: u16, down: bool) -> bool {
     };
     if use_scan {
         flags |= KEYEVENTF_SCANCODE;
-        if extended(vk, scan) {
+        if keypad_enter || extended(vk, scan) {
             flags |= KEYEVENTF_EXTENDEDKEY;
         }
     }
@@ -117,7 +119,7 @@ pub struct Output {
     touch_ready: bool,
     gesture: super::gesture::Gesture,
     tap_until: Option<Instant>,
-    mode_notice: Option<super::gesture::Mode>,
+    mode_notice: Option<super::indicator::Notice>,
 }
 impl Output {
     pub fn gesture_threshold(&mut self, ms: u64) {
@@ -128,7 +130,7 @@ impl Output {
     }
     pub fn ai_down(&mut self, source: &str) -> Result<(), String> {
         if self.gesture.ai_down(source) {
-            self.mode_notice = Some(self.gesture.mode());
+            self.mode_notice = Some(super::indicator::Notice::Mode(self.gesture.mode()));
             self.tap_until = None;
             self.touch_cancel();
             log::info!("HISENSE UWB mode={}", self.gesture.mode().as_str());
@@ -139,8 +141,14 @@ impl Output {
         self.gesture.ai_up(source);
         self.sync_gesture_drag()
     }
-    pub fn take_mode_notice(&mut self) -> Option<super::gesture::Mode> {
+    pub fn take_mode_notice(&mut self) -> Option<super::indicator::Notice> {
         self.mode_notice.take()
+    }
+    pub fn profile_notice(&mut self, name: String) {
+        self.mode_notice = Some(super::indicator::Notice::Profile(name));
+    }
+    pub fn trail_notice(&mut self, enabled: bool) {
+        self.mode_notice = Some(super::indicator::Notice::Trail(enabled));
     }
     pub fn pointer_motion_active(&self) -> bool {
         self.gesture.moving(Instant::now())

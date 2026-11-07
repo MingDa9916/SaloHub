@@ -22,6 +22,21 @@ pub fn pen(bytes: &[u8]) -> Option<Pen> {
         valid: bytes[1] & 0x20 != 0 && x <= 21240 && y <= 15980,
     })
 }
+/// Verified by two unplugged -> powered -> unplugged captures on CRF3C65.
+/// This reports external charging power, NOT state of charge or charging current.
+pub fn charging_power(bytes: &[u8]) -> Option<bool> {
+    if bytes.len() < 6
+        || bytes[..3] != [0x60, 0x58, 0x02]
+        || bytes[4..].iter().any(|byte| *byte != 0)
+    {
+        return None;
+    }
+    match bytes[3] {
+        0 => Some(false),
+        1 => Some(true),
+        _ => None,
+    }
+}
 pub fn keyboard(bytes: &[u8]) -> Option<BTreeSet<String>> {
     if bytes.first() != Some(&1) || bytes.len() < 9 {
         return None;
@@ -57,6 +72,14 @@ pub fn valid_source(s: &str) -> bool {
     }
     false
 }
+/// Periodic receiver telemetry changes even while no key is pressed. It must
+/// never satisfy key learning or be replayed as a mapped button.
+pub fn telemetry_source(source: &str) -> bool {
+    source.starts_with("raw:f08002") || source.starts_with("raw:605802")
+}
+pub fn learnable_source(source: &str) -> bool {
+    valid_source(source) && !source.starts_with("pen:") && !telemetry_source(source)
+}
 pub fn raw_source(bytes: &[u8]) -> Option<String> {
     if bytes.len() < 2
         || bytes.len() > 32
@@ -73,7 +96,7 @@ pub fn raw_source(bytes: &[u8]) -> Option<String> {
             .map(|b| format!("{b:02x}"))
             .collect::<String>()
     );
-    valid_source(&source).then_some(source)
+    (valid_source(&source) && !telemetry_source(&source)).then_some(source)
 }
 pub fn usage_vk(source: &str) -> Option<u16> {
     let u = u8::from_str_radix(source.strip_prefix("key:")?, 16).ok()?;
@@ -123,6 +146,28 @@ pub fn usage_vk(source: &str) -> Option<u16> {
 mod tests {
     use super::*;
     #[test]
+    fn charging_power_is_not_a_percentage_or_a_mappable_key() {
+        for (bytes, expected) in [
+            ([0x60, 0x58, 0x02, 1, 0, 0], true),
+            ([0x60, 0x58, 0x02, 0, 0, 0], false),
+        ] {
+            assert_eq!(charging_power(&bytes), Some(expected));
+            assert!(raw_source(&bytes).is_none());
+        }
+        for bad in [
+            vec![0x60, 0x58, 2, 1],
+            vec![0x60, 0x58, 2, 88, 0, 0],
+            vec![0x60, 0x59, 2, 1, 0, 0],
+            vec![0x60, 0x58, 2, 1, 0, 1],
+        ] {
+            assert_eq!(charging_power(&bad), None);
+        }
+        for source in ["raw:60580201", "raw:605802"] {
+            assert!(valid_source(source));
+            assert!(!learnable_source(source));
+        }
+    }
+    #[test]
     fn real_reports_decode() {
         let p = pen(&[0x3f, 0x21, 0x84, 0x1a, 0xdf, 0x26, 0, 0, 0, 0]).unwrap();
         assert_eq!((p.x, p.y, p.tip), (6788, 9951, true));
@@ -135,6 +180,24 @@ mod tests {
             vec!["key:4f"]
         );
         assert_eq!(usage_vk("key:4f"), Some(0x27));
+    }
+    #[test]
+    fn shortcut_has_stable_usage_and_periodic_telemetry_is_not_a_key() {
+        for _ in 0..5 {
+            assert_eq!(
+                keyboard(&[1, 0, 0, 0x94, 0, 0, 0, 0, 0]).unwrap(),
+                ["key:94".into()].into()
+            );
+        }
+        for report in [
+            [0xf0, 0x80, 0x02, 0x5f, 1, 0, 0, 0xcd, 0xfe, 0, 0],
+            [0xf0, 0x80, 0x02, 0xb6, 0, 0, 0, 0x88, 2, 0, 0],
+        ] {
+            assert!(raw_source(&report).is_none());
+        }
+        assert!(!learnable_source("raw:f080025f010000cdfe"));
+        assert!(!learnable_source("pen:tip"));
+        assert!(learnable_source("key:94"));
     }
     #[test]
     fn rollover_does_not_release_held_keys() {

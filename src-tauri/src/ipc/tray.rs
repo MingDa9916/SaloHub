@@ -2,9 +2,9 @@
 
 use tauri::{
     image::Image,
-    menu::{Menu, MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
+    menu::{Menu, MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager,
+    AppHandle, Manager,
 };
 
 fn restore_main_window(app: &AppHandle) {
@@ -39,95 +39,15 @@ pub fn quit_app_public(app: &AppHandle) {
 }
 
 fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    // 对齐 Python xiaomi_main 托盘：打开状态 / 按键与语音设置 / 重启桥接 / 退出
-    let restore = MenuItemBuilder::with_id("restore", "打开状态").build(app)?;
-    let settings = MenuItemBuilder::with_id("xiaomi_settings", "按键与语音设置").build(app)?;
-    let restart = MenuItemBuilder::with_id("restart_bridge", "重启桥接").build(app)?;
-    let separator1 = PredefinedMenuItem::separator(app)?;
-
-    let xiaomi_connect = MenuItemBuilder::with_id("xiaomi_connect", "连接小米遥控器").build(app)?;
-    let xiaomi_disconnect =
-        MenuItemBuilder::with_id("xiaomi_disconnect", "断开小米遥控器").build(app)?;
-    let xiaomi_submenu = SubmenuBuilder::new(app, "小米遥控器")
-        .item(&xiaomi_connect)
-        .item(&xiaomi_disconnect)
-        .build()?;
-
-    let separator2 = PredefinedMenuItem::separator(app)?;
+    let restore = MenuItemBuilder::with_id("restore", "打开面板").build(app)?;
     let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
-
-    MenuBuilder::new(app)
-        .item(&restore)
-        .item(&settings)
-        .item(&restart)
-        .item(&separator1)
-        .item(&xiaomi_submenu)
-        .item(&separator2)
-        .item(&quit)
-        .build()
+    MenuBuilder::new(app).item(&restore).item(&quit).build()
 }
 
 fn on_menu_event(app: &AppHandle, id: &str) {
     match id {
         "restore" | "show" => restore_main_window(app),
-        "xiaomi_settings" => {
-            restore_main_window(app);
-            let _ = app.emit("navigate", "/xiaomi");
-        }
-        "restart_bridge" => {
-            let app = app.clone();
-            std::thread::spawn(move || {
-                let Some(state) = app.try_state::<crate::bridges::BridgeState>() else {
-                    return;
-                };
-                let Some(config_manager) =
-                    app.try_state::<crate::config::manager::ConfigManager>()
-                else {
-                    return;
-                };
-                if let Err(e) =
-                    crate::ipc::commands::restart_xiaomi_bridge_inner(&app, &state, &config_manager)
-                {
-                    log::warn!("Tray restart bridge failed: {e}");
-                }
-            });
-        }
         "quit" => quit_app(app),
-        "xiaomi_connect" => {
-            log::info!("Tray: connecting Xiaomi");
-            let app = app.clone();
-            std::thread::spawn(move || {
-                let Some(state) = app.try_state::<crate::bridges::BridgeState>() else {
-                    return;
-                };
-                let Some(config_manager) =
-                    app.try_state::<crate::config::manager::ConfigManager>()
-                else {
-                    return;
-                };
-                if let Err(e) =
-                    crate::ipc::commands::restart_xiaomi_bridge_inner(&app, &state, &config_manager)
-                {
-                    log::warn!("Tray connect (restart) failed: {e}");
-                }
-            });
-        }
-        "xiaomi_disconnect" => {
-            log::info!("Tray: disconnecting Xiaomi");
-            if let Some(runtime) =
-                app.try_state::<std::sync::Arc<crate::bridges::xiaomi::connect::XiaomiRuntime>>()
-            {
-                runtime.request_stop();
-                runtime.cancel_active_session("tray_disconnect");
-            }
-            crate::bridges::xiaomi::key_mapping::reset_voice_input_state("tray_disconnect");
-            if let Some(state) = app.try_state::<crate::bridges::BridgeState>() {
-                state.update_status(
-                    crate::bridges::BridgeType::Xiaomi,
-                    crate::bridges::BridgeStatus::Disconnected,
-                );
-            }
-        }
         _ => {}
     }
 }
@@ -149,7 +69,7 @@ pub fn setup_tray(app: &AppHandle) -> Result<TrayIcon, Box<dyn std::error::Error
         .icon(icon)
         .icon_as_template(false)
         .menu(&menu)
-        .tooltip("Nexus Prime")
+        .tooltip("SaloHUb")
         // 左键还原窗口；右键弹出菜单（Windows 默认）
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {

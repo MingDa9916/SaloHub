@@ -558,7 +558,7 @@ async function exportMappings() {
   if (mappingTransferBusy.value || capturing.value || props.saving) return;
   const path = await save({
     defaultPath: "nexus-prime-xiaomi-mappings.json",
-    filters: [{ name: "Nexus Prime 映射配置", extensions: ["json"] }],
+    filters: [{ name: "SaloHUb 映射配置", extensions: ["json"] }],
   });
   if (!path) return;
   mappingTransferBusy.value = true;
@@ -590,7 +590,7 @@ async function importMappings() {
   const selected = await open({
     multiple: false,
     directory: false,
-    filters: [{ name: "Nexus Prime 映射配置", extensions: ["json"] }],
+    filters: [{ name: "SaloHUb 映射配置", extensions: ["json"] }],
   });
   const path = Array.isArray(selected) ? selected[0] : selected;
   if (!path) return;

@@ -1,6 +1,9 @@
 //! Tiny non-activating, click-through desktop layer for the remote's touch point.
 //! The reader publishes only its latest state: old positions are never queued.
-use super::gesture::Mode;
+use super::{
+    gesture::Mode,
+    visual::{Snapshot, Style, Trail, TRAIL_SIDE},
+};
 use parking_lot::Mutex;
 use std::{
     ffi::c_void,
@@ -23,18 +26,35 @@ use windows::{
     },
 };
 
+#[derive(Clone)]
+pub enum Notice {
+    Mode(Mode),
+    Trail(bool),
+    Profile(String),
+}
+impl Notice {
+    fn title(&self) -> &str {
+        match self {
+            Self::Mode(mode) => mode.title(),
+            Self::Trail(true) => "荧光笔开启",
+            Self::Trail(false) => "荧光笔关闭",
+            Self::Profile(name) => name.as_str(),
+        }
+    }
+}
 const SIDE: i32 = 64;
 #[link(name = "user32")]
 unsafe extern "system" {
     fn SetThreadDpiAwarenessContext(context: isize) -> isize;
 }
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Frame {
     position: (i32, i32),
     visible: bool,
     pressed: bool,
     updated: Instant,
-    notice: Option<(Instant, Mode)>,
+    notice: Option<(Instant, Notice)>,
+    style: Style,
 }
 impl Default for Frame {
     fn default() -> Self {
@@ -44,6 +64,7 @@ impl Default for Frame {
             pressed: false,
             updated: Instant::now(),
             notice: None,
+            style: Style::default(),
         }
     }
 }
@@ -84,13 +105,15 @@ impl Indicator {
     pub fn update(&self, visible: bool, position: (i32, i32), pressed: bool) {
         let mut frame = self.frame.lock();
         let wake = visible || frame.visible != visible;
-        let notice = frame.notice;
+        let notice = frame.notice.clone();
+        let style = frame.style;
         *frame = Frame {
             position,
             visible,
             pressed,
             updated: Instant::now(),
             notice,
+            style,
         };
         drop(frame);
         if let Some(worker) = &self.worker {
@@ -99,10 +122,20 @@ impl Indicator {
             }
         }
     }
+    pub fn set_style(&self, style: Style) {
+        let mut frame = self.frame.lock();
+        if frame.style != style {
+            frame.style = style;
+            drop(frame);
+            if let Some(worker) = &self.worker {
+                worker.thread().unpark();
+            }
+        }
+    }
     pub fn take_error(&self) -> Option<String> {
         self.error.lock().take()
     }
-    pub fn notice(&self, mode: Mode) {
+    pub fn notice(&self, mode: Notice) {
         self.frame.lock().notice = Some((Instant::now(), mode));
         if let Some(worker) = &self.worker {
             worker.thread().unpark();
@@ -217,13 +250,19 @@ impl Layer {
             })
         }
     }
-    fn paint(&self, point: (i32, i32), pressed: bool, pulse: Option<f32>) -> Result<(), String> {
+    fn paint(
+        &self,
+        point: (i32, i32),
+        pressed: bool,
+        pulse: Option<f32>,
+        style: Style,
+    ) -> Result<(), String> {
         let pixels = unsafe { std::slice::from_raw_parts_mut(self.pixels, (SIDE * SIDE) as usize) };
         for y in 0..SIDE {
             for x in 0..SIDE {
                 let d = ((x as f32 + 0.5 - 32.).powi(2) + (y as f32 + 0.5 - 32.).powi(2)).sqrt();
                 let mut pixel = (0., 0., 0., 0.);
-                // Dark outer edge and white centre remain visible on light and dark apps.
+                // A dark outer edge keeps each chosen color visible on light apps.
                 blend(
                     &mut pixel,
                     (15., 23., 42.),
@@ -231,18 +270,22 @@ impl Layer {
                 );
                 blend(
                     &mut pixel,
-                    (255., 255., 255.),
+                    style.color.floats(),
                     (7. - d).clamp(0., 1.) * 0.96,
                 );
                 if pressed {
-                    blend(&mut pixel, (59., 130., 246.), (5.8 - d).clamp(0., 1.));
+                    blend(
+                        &mut pixel,
+                        style.pressed_color.floats(),
+                        (5.8 - d).clamp(0., 1.),
+                    );
                 } else {
-                    blend(&mut pixel, (255., 255., 255.), (4.6 - d).clamp(0., 1.));
+                    blend(&mut pixel, style.color.floats(), (4.6 - d).clamp(0., 1.));
                 }
                 if let Some(t) = pulse {
                     let radius = 10. + 17. * t;
                     let coverage = (1.5 - (d - radius).abs()).clamp(0., 1.) * (1. - t) * 0.8;
-                    blend(&mut pixel, (59., 130., 246.), coverage);
+                    blend(&mut pixel, style.pressed_color.floats(), coverage);
                 }
                 let (r, g, b, a) = pixel;
                 pixels[(y * SIDE + x) as usize] = ((a * 255.).round() as u32) << 24
@@ -254,13 +297,21 @@ impl Layer {
         self.present((point.0 - SIDE / 2, point.1 - SIDE / 2), 255)
     }
     fn present(&self, point: (i32, i32), opacity: u8) -> Result<(), String> {
+        self.present_region(point, (self.width, self.height), opacity)
+    }
+    fn present_region(
+        &self,
+        point: (i32, i32),
+        dimensions: (i32, i32),
+        opacity: u8,
+    ) -> Result<(), String> {
         let destination = POINT {
             x: point.0,
             y: point.1,
         };
         let size = SIZE {
-            cx: self.width,
-            cy: self.height,
+            cx: dimensions.0,
+            cy: dimensions.1,
         };
         let source = POINT::default();
         let alpha = BLENDFUNCTION {
@@ -284,7 +335,53 @@ impl Layer {
         }
         .map_err(|e| e.to_string())
     }
-    fn paint_notice(&self, mode: Mode) -> Result<(), String> {
+    fn paint_trail(&self, snapshot: &Snapshot, style: Style) -> Result<(), String> {
+        let (width, height) = snapshot.size;
+        let pixels = unsafe {
+            std::slice::from_raw_parts_mut(self.pixels, (self.width * self.height) as usize)
+        };
+        for y in 0..height {
+            pixels[(y * self.width) as usize..(y * self.width + width) as usize].fill(0);
+        }
+        let radius = style.trail.radius();
+        let halo = style.trail.glow_radius();
+        let opacity = style.trail.opacity_percent as f32 / 100.;
+        let glow_weight = (4. / 11.) * style.trail.glow_percent as f32 / 50.;
+        let mut stamp = |x: f32, y: f32, life: f32| {
+            let x0 = ((x - halo).floor() as i32).clamp(0, width - 1);
+            let x1 = ((x + halo).ceil() as i32).clamp(0, width - 1);
+            let y0 = ((y - halo).floor() as i32).clamp(0, height - 1);
+            let y1 = ((y + halo).ceil() as i32).clamp(0, height - 1);
+            for py in y0..=y1 {
+                for px in x0..=x1 {
+                    let d = (px as f32 + 0.5 - x).hypot(py as f32 + 0.5 - y);
+                    let core = (1. - d / radius).clamp(0., 1.) * (1. - glow_weight);
+                    let glow = (1. - d / halo).clamp(0., 1.).powi(2) * glow_weight;
+                    let alpha = (core + glow) * opacity * life;
+                    let index = (py * self.width + px) as usize;
+                    if (alpha * 255.).round() as u32 > pixels[index] >> 24 {
+                        pixels[index] = style.trail_color.premultiplied(alpha);
+                    }
+                }
+            }
+        };
+        if let Some(&(x, y, life)) = snapshot.points.first() {
+            stamp(x, y, life);
+        }
+        for pair in snapshot.points.windows(2) {
+            let (x0, y0, l0) = pair[0];
+            let (x1, y1, l1) = pair[1];
+            let steps = ((x1 - x0).hypot(y1 - y0) / radius.clamp(3., 10.))
+                .ceil()
+                .max(1.) as usize;
+            for step in 1..=steps {
+                let t = step as f32 / steps as f32;
+                stamp(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, l0 + (l1 - l0) * t);
+            }
+        }
+        self.present_region(snapshot.origin, snapshot.size, 255)
+    }
+    fn paint_notice(&self, mode: Notice) -> Result<(), String> {
         {
             let pixels = unsafe {
                 std::slice::from_raw_parts_mut(self.pixels, (self.width * self.height) as usize)
@@ -336,7 +433,7 @@ impl Layer {
                 self.dc,
                 &mut text,
                 &mut rect,
-                DT_CENTER | DT_VCENTER | DT_SINGLELINE,
+                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS,
             );
             let _ = GdiFlush();
             let _ = SelectObject(self.dc, previous);
@@ -408,6 +505,11 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
     let mut last_pressed = false;
     let mut pulse_start: Option<Instant> = None;
     let mut previous: Option<((i32, i32), bool)> = None;
+    let mut trail = Trail::default();
+    let mut trail_layer: Option<Layer> = None;
+    let mut trail_visible = false;
+    let mut trail_painted = Instant::now();
+    let mut previous_style = Style::default();
     log::info!("HISENSE touch indicator ready click_through=true");
     while !stop.load(Ordering::Acquire) {
         let mut message = MSG::default();
@@ -417,7 +519,7 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
                 DispatchMessageW(&message);
             }
         }
-        let f = *frame.lock();
+        let f = frame.lock().clone();
         if let Some((started, enabled)) = f.notice {
             let age = started.elapsed().as_secs_f32();
             if age < 2.0 {
@@ -453,6 +555,43 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
             }
         }
         let show = f.visible && f.updated.elapsed() < Duration::from_millis(750);
+        if previous_style != f.style {
+            previous_style = f.style;
+            trail.clear();
+            previous = None;
+        }
+        let now = Instant::now();
+        trail.configure(f.style.trail);
+        trail.update(show && f.style.trail_enabled, f.position, now);
+        if !show || !f.style.trail_enabled {
+            if trail_visible {
+                if let Some(layer) = &trail_layer {
+                    layer.hide();
+                }
+                trail_visible = false;
+            }
+        } else if trail_painted.elapsed() >= Duration::from_millis(16) {
+            if let Some(snapshot) = trail.snapshot(now) {
+                if trail_layer.is_none() {
+                    trail_layer = Some(Layer::new_size(TRAIL_SIDE, TRAIL_SIDE)?);
+                }
+                let paint = trail_layer.as_ref().unwrap();
+                paint.paint_trail(&snapshot, f.style)?;
+                if !trail_visible {
+                    paint.show();
+                    trail_visible = true;
+                    if visible {
+                        layer.show();
+                    }
+                }
+            } else if trail_visible {
+                if let Some(layer) = &trail_layer {
+                    layer.hide();
+                }
+                trail_visible = false;
+            }
+            trail_painted = now;
+        }
         if show {
             if f.pressed && !last_pressed {
                 pulse_start = Some(Instant::now());
@@ -462,7 +601,7 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
                 .map(|start| start.elapsed().as_secs_f32() / 0.28)
                 .filter(|t| *t < 1.);
             if !visible || previous != Some((f.position, f.pressed)) || pulse_start.is_some() {
-                layer.paint(f.position, f.pressed, pulse)?;
+                layer.paint(f.position, f.pressed, pulse, f.style)?;
                 previous = Some((f.position, f.pressed));
             }
             if !visible {
@@ -479,13 +618,18 @@ fn run(frame: Arc<Mutex<Frame>>, stop: Arc<AtomicBool>) -> Result<(), String> {
             pulse_start = None;
         }
         last_pressed = show && f.pressed;
-        std::thread::park_timeout(Duration::from_millis(if visible || toast_visible {
-            8
-        } else {
-            250
-        }));
+        std::thread::park_timeout(Duration::from_millis(
+            if visible || toast_visible || trail_visible {
+                8
+            } else {
+                250
+            },
+        ));
     }
     layer.hide();
     toast.hide();
+    if let Some(layer) = trail_layer {
+        layer.hide();
+    }
     Ok(())
 }

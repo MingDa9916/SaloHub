@@ -1021,7 +1021,7 @@ async function chooseVoiceSource(source: "embedded" | "download_page") {
     await refreshHost();
     if (result.needsReboot || !result.ok) {
       voiceChoiceMsg.value = result.needsReboot
-        ? `${result.message} 下一步：重启 Windows，重新打开 Nexus Prime 后点击“自动修复”。`
+        ? `${result.message} 下一步：重启 Windows，重新打开 SaloHUb 后点击“自动修复”。`
         : `${result.message} 可查看应用日志后再次尝试。`;
       voiceRepairTab.value = "repair";
       showVoiceChoice.value = true;
@@ -2016,7 +2016,7 @@ watch(
               <ol>
                 <li>点击“开始自动修复”或“使用内置官方驱动”。</li>
                 <li>在 Windows UAC 中选择“是”；官方安装器里的按钮由应用自动完成。</li>
-                <li>如 Windows 要求重启，重启后重新打开 Nexus Prime 再执行自动修复。</li>
+                <li>如 Windows 要求重启，重启后重新打开 SaloHUb 再执行自动修复。</li>
               </ol>
             </div>
             <aside class="voice-repair-action voice-repair-callout">

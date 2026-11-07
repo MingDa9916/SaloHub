@@ -12,6 +12,7 @@ const props = defineProps<{
   saving: boolean;
   applyHint: string;
   activePreset: ImePreset | null;
+  remoteName?: string;
 }>();
 
 const emit = defineEmits<{
@@ -286,7 +287,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
               <code>右 Alt + 空格</code>。
             </p>
             <p class="ime-detail">
-              免按模式更适合电脑麦克风：小米遥控器松开语音键后会停止传送音频。使用遥控器麦克风时，请选择长按模式。
+              免按模式更适合电脑麦克风：{{ remoteName ?? "小米遥控器" }}松开语音键后会停止传送音频。使用遥控器麦克风时，请选择长按模式。
             </p>
           </div>
           <aside class="ime-panel-action ime-doubao-actions">
@@ -318,6 +319,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
             </section>
           </aside>
         </template>
+        <div v-if="$slots.settings" class="ime-extra-settings"><slot name="settings" /></div>
       </div>
     </section>
   </div>
@@ -552,4 +554,5 @@ onUnmounted(() => window.removeEventListener("keydown", onKeydown));
     transform: none;
   }
 }
+.ime-extra-settings { grid-column: 1 / -1; width: 100%; min-width: 0; padding-top: 20px; border-top: 1px solid var(--border); align-self: start; }
 </style>

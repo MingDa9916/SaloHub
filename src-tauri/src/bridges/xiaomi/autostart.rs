@@ -63,7 +63,7 @@ fn set_run_key(enable: bool) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let value = format!("\"{}\" {}", exe.display(), crate::AUTOSTART_ARGUMENT);
     let value_wide: Vec<u16> = value.encode_utf16().chain(std::iter::once(0)).collect();
-    let name = w!("NexusPrime");
+    let name = w!("SaloHUb");
 
     unsafe {
         let mut key = Default::default();
@@ -88,6 +88,7 @@ fn set_run_key(enable: bool) -> Result<(), String> {
             let _ = RegDeleteValueW(key, name);
             ERROR_SUCCESS
         };
+        if !enable || result == ERROR_SUCCESS { let _=RegDeleteValueW(key,w!("NexusPrime")); }
         let _ = RegCloseKey(key);
         if result != ERROR_SUCCESS && enable {
             return Err(format!("RegSetValueExW failed {result:?}"));
@@ -119,14 +120,15 @@ fn run_key_exists() -> bool {
         let mut ty = REG_VALUE_TYPE::default();
         let q = RegQueryValueExW(
             key,
-            w!("NexusPrime"),
+            w!("SaloHUb"),
             None,
             Some(&mut ty),
             None,
             Some(&mut data_len),
         );
+        let legacy=RegQueryValueExW(key,w!("NexusPrime"),None,Some(&mut ty),None,Some(&mut data_len));
         let _ = RegCloseKey(key);
-        q.is_ok()
+        q.is_ok() || legacy.is_ok()
     }
 }
 

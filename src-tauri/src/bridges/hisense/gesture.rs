@@ -8,28 +8,24 @@ pub enum Mode {
     #[default]
     Touch,
     Move,
-    Slide,
 }
 impl Mode {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Touch => "touch",
             Self::Move => "move",
-            Self::Slide => "slide",
         }
     }
     pub fn title(self) -> &'static str {
         match self {
-            Self::Touch => "UWB 1/3 原始触摸",
-            Self::Move => "UWB 2/3 长按移动",
-            Self::Slide => "UWB 3/3 长按滑动",
+            Self::Touch => "UWB 1/2 原始触摸",
+            Self::Move => "UWB 2/2 长按移动",
         }
     }
     fn next(self) -> Self {
         match self {
             Self::Touch => Self::Move,
-            Self::Move => Self::Slide,
-            Self::Slide => Self::Touch,
+            Self::Move => Self::Touch,
         }
     }
 }
@@ -81,18 +77,15 @@ impl Gesture {
         self.began
             .is_some_and(|began| now.duration_since(began) >= self.hold)
     }
-    pub fn dragging_at(&self, now: Instant) -> bool {
+    pub fn dragging_at(&self, _now: Instant) -> bool {
         !self.drags.is_empty()
             || match self.mode {
                 Mode::Touch => !self.confirms.is_empty(),
                 Mode::Move => false,
-                Mode::Slide => self.confirm_long(now),
             }
     }
     pub fn moving(&self, now: Instant) -> bool {
-        matches!(self.mode, Mode::Touch | Mode::Slide)
-            || !self.drags.is_empty()
-            || self.confirm_long(now)
+        matches!(self.mode, Mode::Touch) || !self.drags.is_empty() || self.confirm_long(now)
     }
     pub fn confirm_down(&mut self, source: &str, now: Instant) {
         if self.confirms.is_empty() {
@@ -147,9 +140,23 @@ mod tests {
         assert!(!g.ai_down("ai"));
         g.ai_up("ai");
         cycle(&mut g);
-        assert_eq!(g.mode(), Mode::Slide);
-        cycle(&mut g);
         assert_eq!(g.mode(), Mode::Touch);
+        cycle(&mut g);
+        assert_eq!(g.mode(), Mode::Move);
+    }
+    #[test]
+    fn cycle_action_accepts_shortcut_and_other_keyboard_sources() {
+        let mut g = Gesture::default();
+        for (source, mode) in [
+            ("key:94", Mode::Move),
+            ("key:65", Mode::Touch),
+            ("key:a5", Mode::Move),
+        ] {
+            assert!(g.ai_down(source));
+            assert_eq!(g.mode(), mode);
+            assert!(!g.ai_down(source));
+            g.ai_up(source);
+        }
     }
     #[test]
     fn touch_mode_is_free_and_contact_is_immediate() {
@@ -177,25 +184,6 @@ mod tests {
         assert!(!g.dragging_at(long));
         assert!(!g.confirm_up("ok", long));
         assert!(!g.moving(long));
-    }
-    #[test]
-    fn slide_mode_moves_freely_but_only_touches_when_long() {
-        let t = Instant::now();
-        let mut g = Gesture::default();
-        cycle(&mut g);
-        cycle(&mut g);
-        assert!(g.moving(t));
-        g.confirm_down("ok", t);
-        assert!(g.moving(t + Duration::from_millis(100)));
-        assert!(!g.dragging_at(t + Duration::from_millis(100)));
-        assert!(g.confirm_up("ok", t + Duration::from_millis(100)));
-        g.confirm_down("ok", t);
-        let long = t + Duration::from_millis(400);
-        assert!(g.moving(long));
-        assert!(g.dragging_at(long));
-        assert!(!g.confirm_up("ok", long));
-        assert!(!g.dragging_at(long));
-        assert!(g.moving(long));
     }
     #[test]
     fn mode_switch_and_aliases_never_add_taps() {

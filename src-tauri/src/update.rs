@@ -213,7 +213,7 @@ fn candidate_from_release(
             version: format!("v{latest}"),
             title: release
                 .name
-                .unwrap_or_else(|| format!("Nexus Prime v{latest}")),
+                .unwrap_or_else(|| format!("SaloHUb v{latest}")),
             notes: release
                 .body
                 .unwrap_or_else(|| "该版本未提供更新说明。".into()),
@@ -371,7 +371,7 @@ pub async fn check_for_update(
     let current_version = app.package_info().version.to_string();
     let current = normalize_version(&current_version)
         .map_err(|error| UpdateCheckError::new(UpdateCheckStage::Validation, error))?;
-    if current.pre.as_str().starts_with("hisense.") {
+    if current.major >= 1 || current.pre.as_str().starts_with("hisense.") {
         // This distribution uses a private repository. Download releases through
         // the user's browser session; never embed a GitHub credential in the app.
         manager.state.lock().candidate = None;

@@ -81,6 +81,7 @@ Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
 Var PreviousInstallDir
+Var LegacyProductInstall
 Var InstallDirChanged
 
 Name "${PRODUCTNAME}"
@@ -537,7 +538,7 @@ Function .onInit
   ; Keep this separate from $INSTDIR so upgrades can offer a new directory
   ; while still knowing which old program files must be removed.
   Call FindPreviousInstallLocation
-  StrCpy $InstallDirChanged 0
+  StrCpy $InstallDirChanged $LegacyProductInstall
 
   ${If} $INSTDIR == "${PLACEHOLDER_INSTALL_DIR}"
     ; Set default install location
@@ -731,10 +732,14 @@ Section Install
   ; Autostart is managed by the app itself. Preserve its enabled/disabled state
   ; during a relocation, migrate either legacy entry to the canonical Run value.
   ${If} $InstallDirChanged = 1
-    ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "NexusPrime"
+    ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "SaloHUb"
+    ${If} $0 == ""
+      ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "NexusPrime"
+    ${EndIf}
     ${If} $0 != ""
     ${OrIf} ${FileExists} "$APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\NexusPrime.lnk"
-      WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "NexusPrime" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --autostart"
+      WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "SaloHUb" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" --autostart"
+      DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "NexusPrime"
       Delete "$APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\NexusPrime.lnk"
     ${EndIf}
   ${EndIf}
@@ -953,6 +958,7 @@ Section Uninstall
 SectionEnd
 
 Function FindPreviousInstallLocation
+  StrCpy $LegacyProductInstall 0
   ReadRegStr $PreviousInstallDir SHCTX "${MANUPRODUCTKEY}" ""
   ; Retain the installation directory when changing the publisher of this fork.
   ${If} $PreviousInstallDir == ""
@@ -960,6 +966,19 @@ Function FindPreviousInstallLocation
   ${EndIf}
   ${If} $PreviousInstallDir == ""
     ReadRegStr $PreviousInstallDir SHCTX "Software\Light year\${PRODUCTNAME}" ""
+  ${EndIf}
+  ; SaloHUb 1.0.0 is the renamed continuation of the existing private fork.
+  ${If} $PreviousInstallDir == ""
+    ReadRegStr $PreviousInstallDir SHCTX "Software\MingDa9916\Nexus Prime" ""
+    ${If} $PreviousInstallDir == ""
+      ReadRegStr $PreviousInstallDir SHCTX "Software\lightyear\Nexus Prime" ""
+    ${EndIf}
+    ${If} $PreviousInstallDir == ""
+      ReadRegStr $PreviousInstallDir SHCTX "Software\Light year\Nexus Prime" ""
+    ${EndIf}
+    ${If} $PreviousInstallDir != ""
+      StrCpy $LegacyProductInstall 1
+    ${EndIf}
   ${EndIf}
   ClearErrors
 FunctionEnd
@@ -976,8 +995,10 @@ FunctionEnd
 Function RememberInstallDirectoryChoice
   StrCpy $InstallDirChanged 0
   ${If} $PreviousInstallDir != ""
-  ${AndIf} $INSTDIR != $PreviousInstallDir
-    StrCpy $InstallDirChanged 1
+    ${If} $INSTDIR != $PreviousInstallDir
+    ${OrIf} $LegacyProductInstall = 1
+      StrCpy $InstallDirChanged 1
+    ${EndIf}
   ${EndIf}
 FunctionEnd
 
@@ -991,7 +1012,7 @@ Function RemovePreviousInstallForRelocation
   DetailPrint "Moving existing installation from $PreviousInstallDir"
   ExecWait '"$PreviousInstallDir\uninstall.exe" /UPDATE _?=$PreviousInstallDir' $0
   ${If} $0 <> 0
-    MessageBox MB_ICONEXCLAMATION "The previous Nexus Prime program files could not be removed (error $0). The installation was not changed." /SD IDOK
+    MessageBox MB_ICONEXCLAMATION "The previous program files could not be removed (error $0). The installation was not changed." /SD IDOK
     Abort
   ${EndIf}
   ; The old uninstaller ran with /UPDATE and has preserved user data. Switch
