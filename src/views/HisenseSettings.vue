@@ -30,7 +30,9 @@ const triggerLabel = computed(() => triggers.find(([id]) => id === selectedTrigg
 const realtime = (action: HisenseAction) => ["PointerConfirm", "PointerAi", "TouchDrag", "VoiceInput"].includes(action.type) || (action.type === "Macro" && ["Hold","Sequence"].includes(config.value?.macros?.[action.value]?.mode||""));
 function binding(id: string, slot: Trigger = selectedTrigger.value): HisenseAction {
   const p=config.value?.profiles?.[editingProfile.value];
-  const scope=p&&Object.prototype.hasOwnProperty.call(p.button_bindings,id)?p:config.value;
+  // Read the key through Vue's proxy so adding/removing an app override
+  // invalidates the editor, preview caption and cached mapping rows together.
+  const scope=p?.button_bindings[id]!==undefined?p:config.value;
   return (slot===1?scope?.button_bindings[id]:slot==="long"?scope?.long_press_bindings?.[id]:scope?.multi_click_bindings?.[id]?.[slot])||{type:"None"};
 }
 const selectedAction = computed(() => binding(selected.value));
@@ -40,7 +42,7 @@ const interval = computed({ get: () => config.value?.multi_click_interval_ms ?? 
 function writeBinding(id: string, action: HisenseAction, slot: Trigger = selectedTrigger.value) {
   if(!config.value)return;
   const p=config.value.profiles?.[editingProfile.value];
-  if(p&&!Object.prototype.hasOwnProperty.call(p.button_bindings,id)) {
+  if(p&&p.button_bindings[id]===undefined) {
     p.button_bindings[id]=JSON.parse(JSON.stringify(config.value.button_bindings[id]||{type:"None"}));
     p.long_press_bindings||={};p.multi_click_bindings||={};
     if(config.value.long_press_bindings?.[id])p.long_press_bindings[id]=JSON.parse(JSON.stringify(config.value.long_press_bindings[id]));

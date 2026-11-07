@@ -34,6 +34,28 @@ async function open() {
   await flushPromises(); return wrapper;
 }
 describe("Hisense independent mapping", () => {
+  it("keeps the editor, preview and list in sync when an inherited app key gets its first override", async () => {
+    stored.button_bindings.up = { type: "SingleKey", value: 0x26 };
+    stored.profiles = { browser: { name: "Chrome", process_name: "chrome.exe", enabled: true, button_bindings: {}, long_press_bindings: {}, multi_click_bindings: {} } };
+    const view = await open();
+    await view.get('[aria-label="编辑应用配置"]').setValue("browser");
+    await view.get('[data-button-id="up"]').trigger("click");
+    expect(view.get('.mapping-editor .binding-value').text()).toBe("上方向键");
+    expect(view.get('[data-button-id="up"] .key-binding').text()).toBe("上方向键");
+    await view.get('.assignment-entries button:nth-child(2)').trigger("click");
+    await view.get('[aria-label="搜索分配功能"]').setValue("Page Up");
+    await view.get('.key-catalog button').trigger("click");
+    expect(view.get('.mapping-editor .binding-value').text()).toBe("Page Up");
+    expect(view.get('[data-button-id="up"] .key-binding').text()).toBe("Page Up");
+    expect(view.get('.preview-caption small').text()).toBe("Page Up");
+    await vi.advanceTimersByTimeAsync(351); await flushPromises();
+    expect(stored.profiles.browser.button_bindings.up).toEqual({ type: "SingleKey", value: 0x21 });
+    expect(stored.button_bindings.up).toEqual({ type: "SingleKey", value: 0x26 });
+    await view.get('.editing-scope button').trigger("click");
+    expect(view.get('.mapping-editor .binding-value').text()).toBe("上方向键");
+    expect(view.get('[data-button-id="up"] .key-binding').text()).toBe("上方向键");
+    expect(view.get('.preview-caption small').text()).toBe("上方向键");
+  });
   it("assigns commands and keypad Enter from the new libraries",async()=>{
     const view=await open();await view.get('[data-button-id="menu"]').trigger('click');
     await view.get('.assignment-entries button:nth-child(1)').trigger('click');
