@@ -1,14 +1,14 @@
 $ErrorActionPreference = 'SilentlyContinue'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $items = [System.Collections.Generic.List[object]]::new()
-function Add-App([string]$name, [string]$path, [string]$source, [string]$launchId = '') {
+function Add-App([string]$name, [string]$path, [string]$source, [string]$launchId = '', [string]$logo = '') {
     if (-not $path) { return }
     $path = [Environment]::ExpandEnvironmentVariables($path.Trim().Trim('"'))
     if (-not $path.EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { return }
     $exe = [IO.Path]::GetFileName($path)
     if ($exe -match '(?i)^(unins|uninstall|setup|update|crash|maintenancetool|vc_redist)') { return }
-    if (-not $name) { $name = [IO.Path]::GetFileNameWithoutExtension($path) }
-    $items.Add([pscustomobject]@{name=$name;process_name=$exe;path=$path;source=$source;launch_id=$launchId})
+    if ([string]::IsNullOrWhiteSpace($name)) { $name = [IO.Path]::GetFileNameWithoutExtension($path) }
+    $items.Add([pscustomobject]@{name=$name;process_name=$exe;path=$path;source=$source;launch_id=$launchId;logo=$logo})
 }
 $shell = New-Object -ComObject WScript.Shell
 $roots = @([Environment]::GetFolderPath('StartMenu'), [Environment]::GetFolderPath('CommonStartMenu'), [Environment]::GetFolderPath('Desktop'), [Environment]::GetFolderPath('CommonDesktopDirectory')) | Select-Object -Unique
@@ -30,7 +30,7 @@ foreach ($root in @('HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*
         if ($app.InstallLocation -and (Test-Path -LiteralPath $app.InstallLocation -PathType Container)) {
             Get-ChildItem -LiteralPath $app.InstallLocation -Filter '*.exe' -File -Depth 2 | Select-Object -First 150 | ForEach-Object {
                 $name = $_.VersionInfo.FileDescription
-                if (-not $name) { $name = $_.BaseName }
+                if ([string]::IsNullOrWhiteSpace($name)) { $name = $_.BaseName }
                 Add-App $name $_.FullName '已安装应用 / 游戏'
             }
         }
@@ -41,7 +41,12 @@ Get-AppxPackage | ForEach-Object {
     $manifest = Get-AppxPackageManifest -Package $package.PackageFullName
     foreach ($app in $manifest.Package.Applications.Application) {
         if ($app.Executable -and $app.Executable -notmatch '^\$') {
-            Add-App $package.Name (Join-Path $package.InstallLocation $app.Executable) '商店应用' ($package.PackageFamilyName + '!' + $app.Id)
+            $logo = ''
+            $relativeLogo = [string]$app.VisualElements.Square44x44Logo
+            if ($relativeLogo -match '(?i)^[\w .\\/-]+\.png$' -and $relativeLogo -notmatch '^[\\/]|(?:^|[\\/])\.\.(?:[\\/]|$)') {
+                $logo = Join-Path $package.InstallLocation $relativeLogo
+            }
+            Add-App $package.Name (Join-Path $package.InstallLocation $app.Executable) '商店应用' ($package.PackageFamilyName + '!' + $app.Id) $logo
         }
     }
 }

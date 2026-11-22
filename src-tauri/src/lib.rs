@@ -293,6 +293,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             bridges::hisense::applications::hisense_scan_applications,
+            bridges::hisense::applications::hisense_application_icons,
             bridges::hisense::transfer::hisense_parse_mappings,
             bridges::hisense::transfer::hisense_mapping_document,
             bridges::hisense::transfer::hisense_read_mapping_file,

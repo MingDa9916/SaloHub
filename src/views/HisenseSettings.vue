@@ -29,7 +29,12 @@ const ready = ref(false), busy = ref(false), saveState = ref("saved"), message =
 const audio = ref<AudioDevice[]>([]), selected = ref("ok");
 type Trigger = 1 | 2 | 3 | 4 | "long";
 const manualOpen=ref(false),workbenchOpen=ref(false);
-async function openWorkbench(){await saveNow();if(saveState.value!=="error")workbenchOpen.value=true;}
+const workbenchTarget = ref<{ id: string; slot: Trigger }>({ id: "ok", slot: 1 });
+async function openWorkbench(target = { id: selected.value, slot: selectedTrigger.value }) {
+  workbenchTarget.value = target;
+  await saveNow();
+  if (saveState.value !== "error") workbenchOpen.value = true;
+}
 async function applyWorkbench(next:HisenseConfig){ready.value=false;if(saveTimer){clearTimeout(saveTimer);saveTimer=null;}config.value=next;lastSaved=JSON.stringify(next);await nextTick();ready.value=true;saveState.value="saved";message.value="映射与宏已应用。";}
 const editingProfile = ref("default"), profileManagerOpen = ref(false);
 const libraryTab = ref<"commands"|"keys"|"macros"|null>(null);
@@ -374,7 +379,7 @@ onUnmounted(() => { void saveNow(); if (bridge.status.learning_button) void invo
             </div>
           </aside>
           <section class="panel mapping-list-panel">
-            <div class="mapping-list-head"><div><h3>映射列表</h3><p class="hint">18 个实体按键 · 2 个指向通道 · 即时保存</p></div><div class="mapping-tools"><button :disabled="transferBusy || captureTarget !== null" @click="openWorkbench">映射与宏解析器</button><button :disabled="transferBusy || captureTarget !== null" @click="transferMappings('export')">导出配置</button><button :disabled="transferBusy || captureTarget !== null" @click="transferMappings('import')">导入配置</button><button :disabled="transferBusy || captureTarget !== null" @click="resetRequested = !resetRequested">一键重置</button><input v-model="search" type="search" aria-label="搜索海信按键映射" placeholder="搜索按键或功能" /></div></div>
+            <div class="mapping-list-head"><div><h3>映射列表</h3><p class="hint">18 个实体按键 · 2 个指向通道 · 即时保存</p></div><div class="mapping-tools"><button :disabled="transferBusy || captureTarget !== null" @click="openWorkbench()">映射与宏编辑器</button><button :disabled="transferBusy || captureTarget !== null" @click="transferMappings('export')">导出配置</button><button :disabled="transferBusy || captureTarget !== null" @click="transferMappings('import')">导入配置</button><button :disabled="transferBusy || captureTarget !== null" @click="resetRequested = !resetRequested">一键重置</button><input v-model="search" type="search" aria-label="搜索海信按键映射" placeholder="搜索按键或功能" /></div></div>
             <div v-if="resetRequested" class="reset-confirm" role="alert"><p>重置“{{ editingProfileName }}”的按键？仅重置当前配置，保留宏库、其他应用配置、指向、语音和学习设置。</p><button :disabled="transferBusy" @click="transferMappings('reset')">重置此配置</button><button :disabled="transferBusy" @click="resetRequested = false">取消</button></div>
             <div class="mapping-grid">
               <button v-for="row in filteredRows" :key="row.id" type="button" :class="['mapping-row', { selected: selected === row.id }]" :data-button-id="row.id" :aria-pressed="selected === row.id" @click="selected = row.id" @mouseenter="hovered = row.id" @mouseleave="hovered = null" @focus="hovered = row.id" @blur="hovered = null">
@@ -462,8 +467,8 @@ onUnmounted(() => { void saveNow(); if (bridge.status.learning_button) void invo
           </section>
         </div>
       </Teleport>
-        <RemoteManual :open="manualOpen" @close="manualOpen=false" /><MappingWorkbench :open="workbenchOpen" @close="workbenchOpen=false" @applied="applyWorkbench" />
-        <HisenseAssignmentLibrary @parser="libraryTab=null;openWorkbench()" :open="libraryTab!==null" :initial-tab="libraryTab||'commands'" :initial-keys="shortcutKeys" :macros="config.macros||{}" :profiles="config.profiles||{}" :button-label="label(libraryTarget.id)" :slot-label="triggers.find(([id])=>id===libraryTarget.slot)?.[1]||'单击'" :base-slot="libraryTarget.slot===1" :allow-held="libraryTarget.slot===1||libraryTarget.slot==='long'" :disabled="transferBusy||captureTarget!==null" @close="libraryTab=null" @assign="assignFromLibrary" @macros-change="updateMacros" />
+        <RemoteManual :open="manualOpen" @close="manualOpen=false" /><MappingWorkbench :open="workbenchOpen" :initial-profile="editingProfile" :initial-button="workbenchTarget.id" :initial-trigger="workbenchTarget.slot" @close="workbenchOpen=false" @applied="applyWorkbench" />
+        <HisenseAssignmentLibrary @parser="libraryTab=null;openWorkbench(libraryTarget)" :open="libraryTab!==null" :initial-tab="libraryTab||'commands'" :initial-keys="shortcutKeys" :macros="config.macros||{}" :profiles="config.profiles||{}" :button-label="label(libraryTarget.id)" :slot-label="triggers.find(([id])=>id===libraryTarget.slot)?.[1]||'单击'" :base-slot="libraryTarget.slot===1" :allow-held="libraryTarget.slot===1||libraryTarget.slot==='long'" :disabled="transferBusy||captureTarget!==null" @close="libraryTab=null" @assign="assignFromLibrary" @macros-change="updateMacros" />
         <HisenseProfileManager :open="profileManagerOpen" :profiles="config.profiles||{}" :enabled="config.profile_switching_enabled!==false" :fixed="config.fixed_profile||null" :editing="editingProfile" :active-name="bridge.status.active_profile_name||'桌面默认'" @close="profileManagerOpen=false" @change="updateProfiles" @settings="updateProfileSettings" @select="editingProfile=$event" />
         <InputMethodSettingsDialog :open="activeDialog === 'voice'" :config-ready="ready" :saving="imeSaving || saveState === 'saving'" :apply-hint="imeApplyHint" :active-preset="activeImePreset" remote-name="海信遥控器" @close="closeSettings" @apply="applyPreset">
           <template #settings><div class="voice-extra" id="hisense-voice"><div class="section-heading"><h3>海信语音与麦克风</h3><span :class="['voice-state', { active: bridge.status.voice_active }]">{{ appliedVoice }}</span></div><p class="hint">自定义快捷键与接收器麦克风设置，修改后自动保存。</p>

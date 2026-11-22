@@ -1,16 +1,16 @@
 {
-  "tag_name": "v1.0.3",
-  "name": "SaloHUb 1.0.3",
-  "body": "# SaloHUb 1.0.3\n\n- 新增按键映射与宏解析器。可直接编辑指定应用、按键及触发方式的动作，也可编辑完整 JSON 文档，解析后应用。\n- 支持导出完整映射、独立宏库和单个宏。导入时会查找本机对应应用。遇到同名程序或未找到应用，可手动重新关联。\n- 添加游戏和应用时自动扫描本机，可搜索及按名称或来源排序。宏支持添加启动应用步骤。\n- 加强海信串码保护。过滤未知键码，遇到异常键盘报告或长时间未收到键盘状态时释放按键。UWB 保持原始触摸和长按移动两种模式。\n- 窗口右侧依次为最小化、最大化或还原、关闭。海信快捷操作新增第五张卡片“遥控器说明书”，可按章节与关键词查询。\n- 同步 Nexus Prime v0.5.7 至 v0.5.9 的配置写入保护、重叠按键释放、连接恢复、语音提示音和输入法设置。海信与小米共用提示音设置，提供预设、试听、音量和自定义音频裁剪。\n\n现有用户可在退出托盘中的旧版或预览版后运行 Windows x64 安装程序。现有配置可继续使用。\n\n上游来源：[Nexus Prime 的 v0.5.9 源码](https://github.com/LightyearXizIl/Nexus-Prime/tree/v0.5.9)。\n",
+  "tag_name": "v1.0.4",
+  "name": "SaloHUb 1.0.4",
+  "body": "# SaloHUb 1.0.4\n\n- 海信按键映射和宏使用可视化编辑器。点击遥控器按键，选择触发方式，再设置快捷键、常用命令、宏、启动应用或其他动作。\n- 在宏库创建宏，添加、排列和删除步骤。修改完成后点击“应用更改”。\n- 继续支持导入和导出映射与宏文件。导入后可预览，并用本机应用列表修正应用关联。\n- 本机应用列表按可见行加载图标。桌面程序使用 Windows 图标，商店应用优先使用程序资源。无法读取图标时显示应用首字。\n\n已有用户可从托盘退出当前版本，再运行 Windows x64 安装程序升级。\n",
   "published_at": null,
   "draft": false,
   "prerelease": false,
   "assets": [
     {
-      "name": "SaloHUb_1.0.3_x64-setup.exe",
-      "size": 15715203,
-      "digest": "sha256:915955f6eb45d8285438e9290bf00f505a4a2554d6405c80a1a122669cd905dd",
-      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.3/SaloHUb_1.0.3_x64-setup.exe"
+      "name": "SaloHUb_1.0.4_x64-setup.exe",
+      "size": 15728232,
+      "digest": "sha256:6461fc5afea61a0f773fffb2aeb3fc043667c1fbdbed9181d4619fdad494bba8",
+      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.4/SaloHUb_1.0.4_x64-setup.exe"
     }
   ]
 }
