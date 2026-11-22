@@ -1,4 +1,6 @@
 mod action_notice;
+pub mod applications;
+pub mod transfer;
 pub mod config;
 pub mod driver;
 mod gesture;
@@ -250,6 +252,7 @@ impl Runtime {
             }
             log::info!("HISENSE receiver connected transport=winusb input_interface=02");
             let mut previous = BTreeSet::new();
+            let mut last_keyboard = Instant::now();
             let mut pen_sources = BTreeSet::new();
             let mut raw: Option<(String, Instant)> = None;
             let mut filter = pointer::PointerFilter::default();
@@ -382,6 +385,7 @@ impl Runtime {
                         }
                     } else if !capturing {
                         if let Some(keys) = protocol::keyboard(&bytes[..n]) {
+                            last_keyboard = now;
                             self.edges(
                                 &app,
                                 &cfg,
@@ -392,6 +396,9 @@ impl Runtime {
                                 &mut mouse,
                                 &voice,
                             );
+                        } else if bytes[0] == 1 {
+                            // Malformed/rollover keyboard reports cannot leave prior keys held.
+                            self.edges(&app, cfg, &mut previous, BTreeSet::new(), &mut held, &mut output, &mut mouse, &voice);
                         } else if let Some(source) = protocol::raw_source(&bytes[..n]) {
                             if raw.as_ref().is_some_and(|r| r.0 != source) {
                                 if let Some((old, _)) = raw.take() {
@@ -437,6 +444,12 @@ impl Runtime {
                         &mut mouse,
                         &voice,
                     );
+                }
+                if !previous.is_empty() && last_keyboard.elapsed() > Duration::from_secs(8) {
+                    // A lost key-up must not keep typing indefinitely. Other report
+                    // families (coordinates/telemetry) do not renew this lease.
+                    self.edges(&app, cfg, &mut previous, BTreeSet::new(), &mut held, &mut output, &mut mouse, &voice);
+                    self.status.lock().error = Some("按键状态超时，已释放输入；请松开后重新按下".into());
                 }
                 if raw
                     .as_ref()
@@ -581,15 +594,16 @@ impl Runtime {
             "hisense-key-event",
             serde_json::json!({"source":source,"button":button,"pressed":true}),
         );
+        if button.is_none() { return; }
         let action = if let Some(button) = &button {
             cfg.button_bindings
                 .get(button)
                 .cloned()
                 .unwrap_or(Action::None)
         } else {
-            protocol::usage_vk(source)
-                .map(Action::SingleKey)
-                .unwrap_or(Action::None)
+            // Receiver data is not a general-purpose keyboard. Unknown usages
+            // must remain observable/learnable but must NEVER type random digits.
+            Action::None
         };
         if let Some(button) = button.clone().filter(|_| !cfg.realtime(&action)) {
             let long = cfg
@@ -849,7 +863,7 @@ impl Runtime {
             Action::VoiceInput => voice.down(source, cfg.clone()),
             Action::TextInput(text) => input::text(text),
             Action::LaunchApp(path) => {
-                if let Err(e) = crate::windows_command::background_command(path).spawn() {
+                if let Err(e) = applications::launch(path) {
                     self.status.lock().error = Some(format!("应用启动失败：{e}"));
                 }
             }
@@ -881,6 +895,9 @@ fn apply_macro_events(
 ) {
     for event in events {
         match event {
+            macro_engine::Event::LaunchApp(path) => {
+                if let Err(error) = applications::launch(&path) { log::warn!("Macro application launch failed: {error}"); }
+            }
             macro_engine::Event::Key { key, down: true } => {
                 out.press(&[key]);
             }
@@ -1039,9 +1056,12 @@ pub async fn hisense_import_mappings(
     if text.len() > 1_048_576 {
         return Err("映射文件不能超过 1 MB".into());
     }
-    let document = serde_json::from_str::<config::MappingsFile>(&text)
-        .map_err(|e| format!("映射格式错误：{e}"))?;
-    runtime.apply_mappings(document)
+    let runtime=runtime.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let base=runtime.config.read().clone();
+        let (cfg, _, _) = transfer::parse(&text, &base)?;
+        runtime.apply_mappings(config::MappingsFile::from_config(&cfg))
+    }).await.map_err(|e|e.to_string())?
 }
 #[tauri::command]
 pub fn hisense_reset_mappings(

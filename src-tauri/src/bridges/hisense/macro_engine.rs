@@ -20,6 +20,7 @@ pub enum Step {
     MouseDown(bool),
     MouseUp(bool),
     Delay(u64),
+    LaunchApp(String),
 }
 pub fn valid_key(key: u16) -> bool {
     (1..=0xfe).contains(&key) || key == 0x10d
@@ -63,6 +64,7 @@ impl Definition {
                 Step::KeyDown(key) | Step::KeyUp(key) if !valid_key(*key) => {
                     return Err("宏按键无效".into())
                 }
+                Step::LaunchApp(path) if path.trim().is_empty() || path.len()>4096 || path.contains('\0') => return Err("宏应用路径无效".into()),
                 Step::Delay(ms) if *ms > 60_000 => return Err("单步延迟不能超过 60 秒".into()),
                 _ => {}
             }
@@ -72,6 +74,7 @@ impl Definition {
 }
 #[derive(Debug, PartialEq, Eq)]
 pub enum Event {
+    LaunchApp(String),
     Key {
         key: u16,
         down: bool,
@@ -157,6 +160,7 @@ impl Run {
             let step = self.steps()[self.index].clone();
             self.index += 1;
             match step {
+                Step::LaunchApp(ref path) => events.push(Event::LaunchApp(path.clone())),
                 Step::Delay(ms) => {
                     if !self.definition.use_default_delay {
                         self.due = now + Duration::from_millis(ms);

@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
-import type { HisenseProfile } from "../types/hisense";
+import ApplicationPicker from "./ApplicationPicker.vue";
+import type { InstalledApplication, HisenseProfile } from "../types/hisense";
 const props=defineProps<{open:boolean;profiles:Record<string,HisenseProfile>;enabled:boolean;fixed:string|null;editing:string;activeName:string}>();
 const emit=defineEmits<{close:[];change:[profiles:Record<string,HisenseProfile>];settings:[enabled:boolean,fixed:string|null];select:[id:string]}>();
+const pickerOpen=ref(false);
+function chooseApp(app:InstalledApplication){if(draft.value){draft.value.name=app.name.slice(0,60);draft.value.process_name=app.process_name;}}
 const search=ref(""),draft=ref<{id:string|null;name:string;process_name:string}|null>(null),message=ref(""),removeId=ref<string|null>(null),root=ref<HTMLElement|null>(null);
 const rows=computed(()=>Object.entries(props.profiles).filter(([,p])=>`${p.name} ${p.process_name}`.toLowerCase().includes(search.value.toLowerCase())));
 let previousFocus:HTMLElement|null=null;
 function close(){emit("close");}
-function create(){draft.value={id:null,name:"",process_name:""};message.value="";}
+function create(){draft.value={id:null,name:"",process_name:""};message.value="";pickerOpen.value=true;}
 async function browse(){try{const path=await openFile({multiple:false,filters:[{name:"应用程序",extensions:["exe"]}]});if(typeof path==="string"&&draft.value){const name=path.split(/[\\/]/).pop()!;draft.value.process_name=name;if(!draft.value.name)draft.value.name=name.replace(/\.exe$/i,"");}}catch(e){message.value=String(e);}}
 function save(){const d=draft.value;if(!d)return;const name=d.name.trim(),process_name=d.process_name.trim().toLowerCase();if(!name||name.length>60||!/^[^\\/:*?"<>|\0]+\.exe$/i.test(process_name)){message.value="请输入应用名称和进程名，例如 chrome.exe；也可以浏览选择程序。";return;}if(Object.entries(props.profiles).some(([id,p])=>id!==d.id&&p.enabled&&p.process_name.toLowerCase()===process_name)){message.value="这个应用已有启用的配置，请编辑原配置。";return;}const id=d.id||crypto.randomUUID(),old=props.profiles[id];emit("change",{...props.profiles,[id]:old?{...old,name,process_name}:{name,process_name,enabled:true,button_bindings:{},long_press_bindings:{},multi_click_bindings:{}}});draft.value=null;emit("select",id);}
 function toggle(id:string){const p=props.profiles[id];emit("change",{...props.profiles,[id]:{...p,enabled:!p.enabled}});if(p.enabled&&props.fixed===id)emit("settings",props.enabled,null);}
@@ -23,11 +26,11 @@ watch(()=>props.open,async open=>{if(open){previousFocus=document.activeElement 
     <div class="profile-body">
       <section class="switching"><div><h3>配置文件切换</h3><p>按前台应用自动切换；固定配置会覆盖自动匹配。</p></div><label><input type="checkbox" :checked="enabled" aria-label="启用配置文件切换" @change="emit('settings',($event.target as HTMLInputElement).checked,fixed)" />启用配置文件切换</label><label>固定使用<select :value="fixed||''" :disabled="!enabled" aria-label="固定使用配置文件" @change="emit('settings',enabled,($event.target as HTMLSelectElement).value||null)"><option value="">无 · 按应用自动切换</option><option value="default">桌面默认</option><option v-for="[id,p] in Object.entries(profiles)" :key="id" :value="id" :disabled="!p.enabled">{{ p.name }}</option></select></label><small>当前生效：{{ activeName }}。切换时会在屏幕左上角提示。</small></section>
       <div class="profile-tools"><input v-model="search" aria-label="搜索应用配置" placeholder="搜索游戏或应用程序" /><button class="primary" @click="create">＋ 添加游戏和应用程序</button></div>
-      <form v-if="draft" class="profile-form" @submit.prevent="save"><label>应用名称<input v-model="draft.name" maxlength="60" aria-label="应用配置名称" placeholder="例如 Chrome" /></label><label>进程名<input v-model="draft.process_name" maxlength="120" aria-label="应用进程名" placeholder="chrome.exe" /></label><button type="button" @click="browse">浏览程序</button><button class="primary" type="submit">保存配置</button><button type="button" @click="draft=null">取消</button><p>只保存程序文件名，不修改程序本身。未单独设置的遥控按键继承桌面默认。</p></form>
+      <form v-if="draft" class="profile-form" @submit.prevent="save"><label>应用名称<input v-model="draft.name" maxlength="60" aria-label="应用配置名称" placeholder="例如 Chrome" /></label><label>进程名<input v-model="draft.process_name" maxlength="120" aria-label="应用进程名" placeholder="chrome.exe" /></label><button type="button" @click="pickerOpen=true">从应用列表选择</button><button type="button" @click="browse">浏览程序</button><button class="primary" type="submit">保存配置</button><button type="button" @click="draft=null">取消</button><p>只保存程序文件名，不修改程序本身。未单独设置的遥控按键继承桌面默认。</p></form>
       <p v-if="message" class="message" role="status">{{ message }}</p>
       <div class="profile-grid"><article :class="{selected:editing==='default'}"><div class="app-icon">⌂</div><h3>桌面默认</h3><p>没有匹配应用时使用</p><button @click="emit('select','default');close()">编辑按键</button></article><article v-for="[id,p] in rows" :key="id" :class="{selected:editing===id,disabled:!p.enabled}"><div class="app-icon">{{ p.name.slice(0,1).toUpperCase() }}</div><h3>{{ p.name }}</h3><p>{{ p.process_name }}</p><small>{{ Object.keys(p.button_bindings).length }} 个独立按键 · {{ p.enabled?'已启用':'已停用' }}</small><div class="profile-actions"><button @click="emit('select',id);close()">编辑按键</button><button @click="draft={id,name:p.name,process_name:p.process_name}">设置</button><button @click="toggle(id)">{{ p.enabled?'停用':'启用' }}</button><button class="danger" @click="remove(id)">{{ removeId===id?'确认删除':'删除' }}</button></div></article></div>
     </div>
-  </section></div>
+  </section><ApplicationPicker :open="pickerOpen" @close="pickerOpen=false" @select="chooseApp" /></div>
 </template>
 
 <style scoped>

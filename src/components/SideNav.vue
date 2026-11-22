@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { revealTheme } from "../utils/themeReveal";
 import { useRoute, useRouter } from "vue-router";
 import { useBridgeStore } from "../stores/bridge";
 import { useThemeStore } from "../stores/theme";
@@ -40,8 +41,8 @@ function navigate(path: "/xiaomi" | "/xiaomi/mapping" | "/settings" | "/hisense"
   if (route.path !== path) void router.push(path);
 }
 
-function toggleTheme() {
-  void theme.toggle();
+function toggleTheme(event: MouseEvent) {
+  revealTheme(event.currentTarget as HTMLElement, () => { void theme.toggle(); });
 }
 
 </script>

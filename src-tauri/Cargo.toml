@@ -1,6 +1,6 @@
 [package]
 name = "nexus-prime"
-version = "1.0.2"
+version = "1.0.3"
 description = "SaloHUb - remote, application profiles and macro control"
 authors = ["MingDa9916"]
 license = "MIT"
@@ -45,6 +45,8 @@ windows = { version = "0.58", features = [
     "Storage_Streams",
     "Foundation",
     "Foundation_Collections",
+    "Data_Xml_Dom",
+    "Win32_System_WinRT",
     "Win32_UI_Input",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Input_Pointer",

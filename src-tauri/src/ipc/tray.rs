@@ -16,27 +16,14 @@ fn restore_main_window(app: &AppHandle) {
     }
 }
 
+static QUITTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 fn quit_app(app: &AppHandle) {
-    // 先停桥接 / HID Tap / 钩子 / 音频子进程，避免托盘退出后 remote-bridge-hub.exe 残留
-    if let Some(runtime) =
-        app.try_state::<std::sync::Arc<crate::bridges::xiaomi::connect::XiaomiRuntime>>()
-    {
-        runtime.request_stop();
-        runtime.cancel_active_session("tray_quit");
-    }
-    crate::bridges::xiaomi::key_mapping::reset_voice_input_state("tray_quit");
-    crate::bridges::xiaomi::hid_report_tap::stop_and_join();
-    crate::bridges::xiaomi::special_keys::stop_special_key_hook();
-    crate::audio::pcm_router::stop_audio_router_process();
-    // 给后台线程一点时间退出 accept/GetMessage
-    std::thread::sleep(std::time::Duration::from_millis(150));
-    app.exit(0);
+    if QUITTING.swap(true, std::sync::atomic::Ordering::SeqCst) { return; }
+    let app=app.clone();
+    std::thread::spawn(move || { crate::cleanup_on_exit(&app); app.exit(0); });
 }
 
-/// 供 IPC `quit_application` 调用
-pub fn quit_app_public(app: &AppHandle) {
-    quit_app(app);
-}
+pub fn quit_app_public(app: &AppHandle) { quit_app(app); }
 
 fn build_tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let restore = MenuItemBuilder::with_id("restore", "打开面板").build(app)?;

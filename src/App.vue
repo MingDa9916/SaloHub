@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from "vue";
-import { RouterView, useRouter } from "vue-router";
+import { onMounted, onUnmounted, ref, watch } from "vue";
+import { RouterView, useRoute, useRouter } from "vue-router";
 import { listen, emit, type UnlistenFn } from "@tauri-apps/api/event";
 import { loggedInvoke as invoke } from "./utils/appLogger";
 import SideNav from "./components/SideNav.vue";
@@ -24,6 +24,8 @@ interface ConflictSnapshot {
 }
 
 const router = useRouter();
+const route=useRoute(),mainContent=ref<HTMLElement|null>(null);
+watch(()=>route.path,()=>{if(mainContent.value)mainContent.value.scrollTop=0;});
 const update = useUpdateStore();
 const { t } = useI18n();
 let unlistenNav: UnlistenFn | null = null;
@@ -149,7 +151,7 @@ onUnmounted(() => {
   <div class="app-container">
     <WindowTitleBar />
     <SideNav />
-    <main class="main-content">
+    <main ref="mainContent" class="main-content thin-scrollbar">
       <RouterView />
     </main>
   </div>
@@ -580,4 +582,9 @@ textarea:focus-visible {
   font-size: 12px;
   color: var(--warning);
 }
+</style>
+
+<style>
+.thin-scrollbar::-webkit-scrollbar{width:4px}.thin-scrollbar::-webkit-scrollbar-track{background:transparent}.thin-scrollbar::-webkit-scrollbar-thumb{border-radius:999px;background:color-mix(in srgb,var(--text-secondary) 64%,transparent)}
+html.theme-reveal::view-transition{pointer-events:none}html.theme-reveal #app *,html.theme-reveal #app *::before,html.theme-reveal #app *::after{transition:none!important}html.theme-reveal::view-transition-group(root),html.theme-reveal::view-transition-old(root),html.theme-reveal::view-transition-new(root){animation:none;mix-blend-mode:normal}
 </style>

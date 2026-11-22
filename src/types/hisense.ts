@@ -1,5 +1,6 @@
 export type MacroMode = "Once" | "Hold" | "Toggle" | "Sequence";
-export type MacroStep = { type: "KeyDown" | "KeyUp"; value: number } | { type: "MouseDown" | "MouseUp"; value: boolean } | { type: "Delay"; value: number };
+export interface InstalledApplication {name:string;process_name:string;path:string;source:string;launch_id?:string|null}
+export type MacroStep = { type:"LaunchApp"; value:string } | { type: "KeyDown" | "KeyUp"; value: number } | { type: "MouseDown" | "MouseUp"; value: boolean } | { type: "Delay"; value: number };
 export interface HisenseMacro { name: string; mode: MacroMode; color: string; use_default_delay: boolean; default_delay_ms: number; show_key_transitions: boolean; press: MacroStep[]; hold: MacroStep[]; release: MacroStep[]; }
 export interface HisenseProfile { name: string; process_name: string; enabled: boolean; button_bindings: Record<string, HisenseAction>; long_press_bindings: Record<string, HisenseAction>; multi_click_bindings: Record<string, Partial<Record<2|3|4,HisenseAction>>>; }
 export type HisenseAction =

@@ -38,7 +38,7 @@ pub fn charging_power(bytes: &[u8]) -> Option<bool> {
     }
 }
 pub fn keyboard(bytes: &[u8]) -> Option<BTreeSet<String>> {
-    if bytes.first() != Some(&1) || bytes.len() < 9 {
+    if bytes.first() != Some(&1) || bytes.len() < 9 || bytes[2] != 0 {
         return None;
     }
     if bytes[3..9].iter().any(|k| (1..=3).contains(k)) {

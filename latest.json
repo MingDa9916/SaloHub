@@ -1,16 +1,16 @@
 {
-  "tag_name": "v1.0.2",
-  "name": "SaloHUb 1.0.2",
-  "body": "# SaloHUb 1.0.2\n\n- 同步上游 Nexus Prime 的标点与多键组合改进，来源提交 [38d49f0](https://github.com/LightyearXizIl/Nexus-Prime/commit/38d49f017e092b392065bfbc71ec1c116a988267)：符号分组、标点单键、Shift 标点、附加键增删、重复按键检查、快捷键文字转下拉继续编辑。\n- 小米和海信共用新版组合编辑器，保留海信数字小键盘 Enter、应用独立映射和既有自定义功能。\n- 同步 Xiaomi WinUHid 对无法编码的标点组合的回退处理，避免将这类组合误判为设备故障。\n- 修复 macOS 风格标题栏的深色选择器，深色主题采用纯黑背景，并保留窗口按钮与关闭到托盘行为。\n- 删除导航图标旧的白底容器与缩小图片覆盖样式，修复四周白线；改用内容哈希资源并清除边框、轮廓与阴影。\n- 左侧按键编辑框内各功能区均匀分布，保留与右侧底部对齐。\n\n安装后的真实遥控器标点输入及完整回归由用户手动验收。\n\n验证：128 项前端测试、10 项桥接脚本测试、3 项 Xiaomi 原生按键编码测试、Rust 全目标检查及调试构建通过。实际窗口确认深色标题栏与图标无白边，用户确认本轮效果正常。Windows x64 NSIS 安装包已构建。\n",
+  "tag_name": "v1.0.3",
+  "name": "SaloHUb 1.0.3",
+  "body": "# SaloHUb 1.0.3\n\n- 新增按键映射与宏解析器。可直接编辑指定应用、按键及触发方式的动作，也可编辑完整 JSON 文档，解析后应用。\n- 支持导出完整映射、独立宏库和单个宏。导入时会查找本机对应应用。遇到同名程序或未找到应用，可手动重新关联。\n- 添加游戏和应用时自动扫描本机，可搜索及按名称或来源排序。宏支持添加启动应用步骤。\n- 加强海信串码保护。过滤未知键码，遇到异常键盘报告或长时间未收到键盘状态时释放按键。UWB 保持原始触摸和长按移动两种模式。\n- 窗口右侧依次为最小化、最大化或还原、关闭。海信快捷操作新增第五张卡片“遥控器说明书”，可按章节与关键词查询。\n- 同步 Nexus Prime v0.5.7 至 v0.5.9 的配置写入保护、重叠按键释放、连接恢复、语音提示音和输入法设置。海信与小米共用提示音设置，提供预设、试听、音量和自定义音频裁剪。\n\n现有用户可在退出托盘中的旧版或预览版后运行 Windows x64 安装程序。现有配置可继续使用。\n\n上游来源：[Nexus Prime 的 v0.5.9 源码](https://github.com/LightyearXizIl/Nexus-Prime/tree/v0.5.9)。\n",
   "published_at": null,
   "draft": false,
   "prerelease": false,
   "assets": [
     {
-      "name": "SaloHUb_1.0.2_x64-setup.exe",
-      "size": 15046921,
-      "digest": "sha256:9be4fae369477bbd0ec02dafb701377a4fe4af0ff00ba129a57320c6bfbda6c3",
-      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.2/SaloHUb_1.0.2_x64-setup.exe"
+      "name": "SaloHUb_1.0.3_x64-setup.exe",
+      "size": 15715203,
+      "digest": "sha256:915955f6eb45d8285438e9290bf00f505a4a2554d6405c80a1a122669cd905dd",
+      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.3/SaloHUb_1.0.3_x64-setup.exe"
     }
   ]
 }

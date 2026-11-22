@@ -4,6 +4,7 @@ pub mod chatgpt_focus;
 pub mod config;
 pub mod ipc;
 pub mod logging;
+pub mod repair;
 pub mod update;
 pub mod windows_command;
 
@@ -21,10 +22,17 @@ unsafe extern "C" {}
 use tauri::{Manager, RunEvent};
 
 /// 退出前统一清理：停桥接 + HID Tap + 卸键盘钩子，避免进程残留
-fn cleanup_on_exit(app: &tauri::AppHandle) {
-    if let Some(runtime) = app.try_state::<std::sync::Arc<bridges::hisense::Runtime>>() {
-        runtime.stop();
+static EXIT_CLEANED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static EXIT_CLEANUP_STARTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+pub(crate) fn cleanup_on_exit(app: &tauri::AppHandle) {
+    if EXIT_CLEANUP_STARTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return;
     }
+    audio::feedback::cancel();
+    bridges::xiaomi::key_mapping::cancel_pending_gestures();
+    bridges::xiaomi::hid_injector::release_all();
+    if let Some(runtime) = app.try_state::<std::sync::Arc<bridges::hisense::Runtime>>() { runtime.stop(); }
     if let Some(runtime) =
         app.try_state::<std::sync::Arc<bridges::xiaomi::connect::XiaomiRuntime>>()
     {
@@ -36,6 +44,7 @@ fn cleanup_on_exit(app: &tauri::AppHandle) {
     bridges::xiaomi::hid_report_tap::stop_and_join();
     bridges::xiaomi::special_keys::stop_special_key_hook();
     audio::pcm_router::stop_audio_router_process();
+    EXIT_CLEANED.store(true, std::sync::atomic::Ordering::SeqCst);
 }
 
 fn focus_main_window(app: &tauri::AppHandle) {
@@ -119,6 +128,15 @@ pub fn run() {
                     settings.remote_microphone_restore_delay_enabled,
                     settings.remote_microphone_restore_delay_seconds,
                 );
+                if settings.voice_feedback.enabled {
+                    let handle = app.handle().clone();
+                    tauri::async_runtime::spawn_blocking(move || {
+                        let manager = handle.state::<config::manager::ConfigManager>();
+                        if let Err(error) = manager.restore_voice_feedback() {
+                            log::warn!("VOICE FEEDBACK settings_unavailable error={error}");
+                        }
+                    });
+                }
             }
             app.manage(update::UpdateManager::default());
 
@@ -274,6 +292,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            bridges::hisense::applications::hisense_scan_applications,
+            bridges::hisense::transfer::hisense_parse_mappings,
+            bridges::hisense::transfer::hisense_mapping_document,
+            bridges::hisense::transfer::hisense_read_mapping_file,
+            bridges::hisense::transfer::hisense_export_document,
             bridges::hisense::hisense_macro_record_start,
             bridges::hisense::hisense_macro_record_poll,
             bridges::hisense::hisense_stop_macros,
@@ -306,6 +329,12 @@ pub fn run() {
             ipc::commands::get_autostart,
             ipc::commands::get_global_settings,
             ipc::commands::save_global_settings,
+            ipc::commands::save_voice_feedback,
+            ipc::commands::import_voice_feedback,
+            ipc::commands::pick_voice_feedback_source,
+            ipc::commands::read_voice_feedback_source,
+            ipc::commands::read_voice_feedback_preset,
+            ipc::commands::preview_voice_feedback,
             ipc::commands::set_theme_preference,
             ipc::commands::set_language_preference,
             ipc::commands::get_xiaomi_host_status,
@@ -329,6 +358,9 @@ pub fn run() {
             ipc::commands::kill_xiaomi_conflicts,
             ipc::commands::retry_xiaomi_after_conflict_clear,
             ipc::commands::repair_xiaomi_atvv,
+            ipc::commands::get_recovery_operation,
+            ipc::commands::open_bluetooth_settings,
+            ipc::commands::control_main_window,
             update::check_for_update,
             update::download_update,
             update::cancel_update_download,
@@ -338,9 +370,13 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|app_handle, event| {
             match event {
-                RunEvent::ExitRequested { .. } | RunEvent::Exit => {
-                    cleanup_on_exit(app_handle);
+                RunEvent::ExitRequested { api, .. } => {
+                    if !EXIT_CLEANED.load(std::sync::atomic::Ordering::SeqCst) {
+                        api.prevent_exit();
+                        ipc::tray::quit_app_public(app_handle);
+                    }
                 }
+                RunEvent::Exit => cleanup_on_exit(app_handle),
                 _ => {}
             }
         });

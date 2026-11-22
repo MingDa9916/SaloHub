@@ -8,10 +8,12 @@ import { useThemeStore } from "../stores/theme";
 import { useUpdateStore } from "../stores/update";
 import { useLocaleStore } from "../stores/locale";
 import { useI18n } from "vue-i18n";
+import { revealTheme } from "../utils/themeReveal";
+import VoiceFeedbackPanel from "../components/VoiceFeedbackPanel.vue";
 import type { AppLocale } from "../i18n";
 import type { GlobalSettings, ThemePreference } from "../types";
 
-type SectionId = "general" | "appearance" | "about";
+type SectionId = "general" | "voice-feedback" | "appearance" | "about";
 type LogCleanupResult = { deletedFiles: number; freedBytes: number };
 
 const settings = ref<GlobalSettings>({
@@ -46,6 +48,7 @@ const saveButtonLabel = computed(() => {
 });
 
 const navigation = computed<Array<{ id: SectionId; label: string; caption: string }>>(() => [
+  { id: "voice-feedback", label: "语音提示音", caption: "开始音、结束音与裁剪" },
   { id: "general", label: t("settings.general"), caption: t("settings.generalHint") },
   { id: "appearance", label: t("settings.appearance"), caption: t("settings.appearanceHint") },
   { id: "about", label: t("settings.about"), caption: t("settings.aboutHint") },
@@ -155,8 +158,8 @@ async function clearOldLogs() {
   }
 }
 
-async function setTheme(nextPreference: ThemePreference) {
-  await theme.setPreference(nextPreference);
+function setTheme(nextPreference: ThemePreference, event:MouseEvent) {
+  revealTheme(event.currentTarget as HTMLElement,()=>{void theme.setPreference(nextPreference);});
 }
 
 function setLanguage(event: Event) {
@@ -350,6 +353,7 @@ async function openExternal(url: string) {
           </div>
         </section>
 
+        <section v-else-if="activeSection === 'voice-feedback'" class="settings-card"><h2>语音提示音</h2><VoiceFeedbackPanel /></section>
         <section v-else-if="activeSection === 'appearance'" id="settings-panel-appearance" class="settings-card" role="tabpanel" aria-labelledby="settings-tab-appearance">
           <div class="card-head">
             <div>
@@ -379,7 +383,7 @@ async function openExternal(url: string) {
                 </div>
               </div>
               <div class="theme-segmented" role="group" :aria-label="t('settings.theme')">
-                <button v-for="option in ([['light', t('settings.light')], ['system', t('settings.system')], ['dark', t('settings.dark')]] as const)" :key="option[0]" type="button" :disabled="theme.saving" :class="{ active: theme.preference === option[0] }" @click="setTheme(option[0])">
+                <button v-for="option in ([['light', t('settings.light')], ['system', t('settings.system')], ['dark', t('settings.dark')]] as const)" :key="option[0]" type="button" :disabled="theme.saving" :class="{ active: theme.preference === option[0] }" @click="setTheme(option[0], $event)">
                   {{ option[1] }}
                 </button>
               </div>

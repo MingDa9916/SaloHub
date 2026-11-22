@@ -60,6 +60,7 @@ impl Voice {
                         drop(shortcut);
                         crate::audio::microphone_router::voice_released();
                         voice_pcm::release_external_voice();
+                        crate::audio::feedback::voice_stopped();
                         s.lock().active = false;
                         p.store(0, Ordering::Relaxed);
                     }
@@ -129,6 +130,7 @@ impl Voice {
                                 continue;
                             }
                             capture.open_gate();
+                            crate::audio::feedback::voice_started();
                             s.lock().active = true;
                             s.lock().error = None;
                             log::info!(
