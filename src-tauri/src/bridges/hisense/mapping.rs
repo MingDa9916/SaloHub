@@ -165,6 +165,12 @@ impl<A: Clone> Mapping<A> {
         }
         events
     }
+    /// The active long-press owner for a physical source, if its action has fired.
+    pub fn hold_owner(&self, source: &str) -> Option<String> {
+        let button = self.sources.get(source)?;
+        self.states.get(button)?.held.then(|| format!("mapping:hold:{button}"))
+    }
+
     /// Call together with output.release_all on pause/disconnect/config changes.
     pub fn clear(&mut self) {
         self.states.clear();

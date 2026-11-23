@@ -1,16 +1,16 @@
 {
-  "tag_name": "v1.0.4",
-  "name": "SaloHUb 1.0.4",
-  "body": "# SaloHUb 1.0.4\n\n- 海信按键映射和宏使用可视化编辑器。点击遥控器按键，选择触发方式，再设置快捷键、常用命令、宏、启动应用或其他动作。\n- 在宏库创建宏，添加、排列和删除步骤。修改完成后点击“应用更改”。\n- 继续支持导入和导出映射与宏文件。导入后可预览，并用本机应用列表修正应用关联。\n- 本机应用列表按可见行加载图标。桌面程序使用 Windows 图标，商店应用优先使用程序资源。无法读取图标时显示应用首字。\n\n已有用户可从托盘退出当前版本，再运行 Windows x64 安装程序升级。\n",
+  "tag_name": "v1.0.5",
+  "name": "SaloHUb 1.0.5",
+  "body": "# SaloHUb 1.0.5\n\n- 修复海信遥控器按住语音键说话约 8 秒后被提前停止的问题。长按期间保持录音，松开语音键时结束。\n- 普通按键仍使用超时释放保护，避免持续串码。\n- 回归检查通过。在海信遥控器和千问输入法上实测持续录音 15.46 秒，松开后结束。\n\n升级前，请先从系统托盘退出正在运行的 SaloHUb，再运行 Windows x64 安装程序。\n",
   "published_at": null,
   "draft": false,
   "prerelease": false,
   "assets": [
     {
-      "name": "SaloHUb_1.0.4_x64-setup.exe",
-      "size": 15728232,
-      "digest": "sha256:6461fc5afea61a0f773fffb2aeb3fc043667c1fbdbed9181d4619fdad494bba8",
-      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.4/SaloHUb_1.0.4_x64-setup.exe"
+      "name": "SaloHUb_1.0.5_x64-setup.exe",
+      "size": 15724285,
+      "digest": "sha256:b8032b92cf37f2124b6e1597f63eabff85f9c691379bcad4b8238d8478686891",
+      "browser_download_url": "https://github.com/MingDa9916/SaloHub/releases/download/v1.0.5/SaloHUb_1.0.5_x64-setup.exe"
     }
   ]
 }

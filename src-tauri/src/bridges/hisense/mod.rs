@@ -252,7 +252,7 @@ impl Runtime {
             }
             log::info!("HISENSE receiver connected transport=winusb input_interface=02");
             let mut previous = BTreeSet::new();
-            let mut last_keyboard = Instant::now();
+            let mut last_keyboard = None;
             let mut pen_sources = BTreeSet::new();
             let mut raw: Option<(String, Instant)> = None;
             let mut filter = pointer::PointerFilter::default();
@@ -385,7 +385,7 @@ impl Runtime {
                         }
                     } else if !capturing {
                         if let Some(keys) = protocol::keyboard(&bytes[..n]) {
-                            last_keyboard = now;
+                            last_keyboard = Some(now);
                             self.edges(
                                 &app,
                                 &cfg,
@@ -397,8 +397,13 @@ impl Runtime {
                                 &voice,
                             );
                         } else if bytes[0] == 1 {
-                            // Malformed/rollover keyboard reports cannot leave prior keys held.
-                            self.edges(&app, cfg, &mut previous, BTreeSet::new(), &mut held, &mut output, &mut mouse, &voice);
+                            // Rollover and malformed reports lack a reliable key-up.
+                            let keep = voice_keyboard_sources(&previous, &held, &self.mapping.lock());
+                            if keep.len() != previous.len() {
+                                self.edges(
+                                    &app, cfg, &mut previous, keep, &mut held, &mut output, &mut mouse, &voice,
+                                );
+                            }
                         } else if let Some(source) = protocol::raw_source(&bytes[..n]) {
                             if raw.as_ref().is_some_and(|r| r.0 != source) {
                                 if let Some((old, _)) = raw.take() {
@@ -445,11 +450,18 @@ impl Runtime {
                         &voice,
                     );
                 }
-                if !previous.is_empty() && last_keyboard.elapsed() > Duration::from_secs(8) {
-                    // A lost key-up must not keep typing indefinitely. Other report
-                    // families (coordinates/telemetry) do not renew this lease.
-                    self.edges(&app, cfg, &mut previous, BTreeSet::new(), &mut held, &mut output, &mut mouse, &voice);
-                    self.status.lock().error = Some("按键状态超时，已释放输入；请松开后重新按下".into());
+                if last_keyboard.is_some_and(|last| now.duration_since(last) >= Duration::from_secs(8)) {
+                    last_keyboard = None;
+                    if !previous.is_empty() {
+                        let keep = voice_keyboard_sources(&previous, &held, &self.mapping.lock());
+                        if keep.len() != previous.len() {
+                            // A missing key-up must not keep typing indefinitely.
+                            self.edges(
+                                &app, cfg, &mut previous, keep, &mut held, &mut output, &mut mouse, &voice,
+                            );
+                            self.status.lock().error = Some("按键状态超时，已释放普通输入；请松开后重新按下".into());
+                        }
+                    }
                 }
                 if raw
                     .as_ref()
@@ -927,6 +939,23 @@ struct Held {
     keys: Vec<u16>,
     repeat_at: Instant,
 }
+/// The receiver may only send keyboard snapshots on state changes. A held
+/// voice action owns its shortcut until a valid release or bridge cleanup.
+fn voice_keyboard_sources(
+    sources: &BTreeSet<String>,
+    held: &BTreeMap<String, Held>,
+    mapping: &mapping::Mapping<Action>,
+) -> BTreeSet<String> {
+    let is_voice = |owner: &str| held.get(owner).is_some_and(|h| matches!(h.action, Action::VoiceInput));
+    sources
+        .iter()
+        .filter(|source| {
+            is_voice(source) || mapping.hold_owner(source).is_some_and(|owner| is_voice(&owner))
+        })
+        .cloned()
+        .collect()
+}
+
 #[derive(Default)]
 struct MouseOwners {
     left: BTreeSet<String>,
@@ -1131,6 +1160,41 @@ static SETUP_LOCK: Mutex<()> = Mutex::new(());
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn missing_keyboard_reports_keep_only_active_voice_sources() {
+        let now = Instant::now();
+        let mut mapping = mapping::Mapping::default();
+        mapping.down(
+            "ai",
+            "key:f1",
+            mapping::Plan {
+                single: Action::None,
+                long: Some(Action::VoiceInput),
+                multi: BTreeMap::new(),
+                interval: Duration::from_millis(300),
+                hold: Duration::from_millis(280),
+            },
+            now,
+        );
+        let long_press = mapping.tick(now + Duration::from_millis(300));
+        let [mapping::Event::Down { owner, action, .. }] = long_press.as_slice() else {
+            panic!("expected the long-press voice action");
+        };
+        let output = |action| Held { started: now, action, keys: vec![], repeat_at: now };
+        let held = BTreeMap::from([
+            ("key:df".into(), output(Action::VoiceInput)),
+            (owner.clone(), output(action.clone())),
+            ("key:52".into(), output(Action::SingleKey(0x26))),
+        ]);
+        let sources = ["key:df", "key:f1", "key:52", "key:fe"].map(String::from).into();
+        let kept = voice_keyboard_sources(&sources, &held, &mapping);
+        assert_eq!(kept, ["key:df", "key:f1"].map(String::from).into());
+        let key_up = mapping.up("key:f1", now + Duration::from_secs(30)).unwrap();
+        assert!(matches!(key_up.as_slice(), [mapping::Event::Up(released)] if released == owner));
+        assert_eq!(voice_keyboard_sources(&kept, &held, &mapping), ["key:df"].map(String::from).into());
+    }
+
     #[test]
     fn failed_import_save_keeps_current_mapping_and_revision() {
         let directory = std::env::temp_dir().join(format!(
